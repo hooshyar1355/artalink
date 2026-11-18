@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>محاسبه‌گر لینک وایرلس و ناحیه فرنل</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#eef1f0; --surface:#ffffff; --ink:#16222b; --muted:#5d6b73; --line:#d3dbd8;
+  --accent:#0b7a75; --accent-ink:#ffffff;
+  --ok:#1b8a4b; --warn:#c77d0a; --bad:#c23b2e;
+  --terrain:#c9b99a; --terrain-line:#8a7650; --fresnel:rgba(11,122,117,.16); --fresnel-line:#0b7a75;
+  --grid:#dfe6e3; --chart-bg:#f9fbfa; --sky1:#a8cdea; --sky2:#e9f3fa;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101719; --surface:#182226; --ink:#e6eeec; --muted:#93a3a8; --line:#2c3b40;
+    --accent:#3ec7bd; --accent-ink:#06201e;
+    --ok:#4cc27f; --warn:#e8a63a; --bad:#ec6a5c;
+    --terrain:#5a4e3a; --terrain-line:#a08d66; --fresnel:rgba(62,199,189,.16); --fresnel-line:#3ec7bd;
+    --grid:#26343a; --chart-bg:#131c1f; --sky1:#12202c; --sky2:#27414f;
+  }
+}
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Vazirmatn",Tahoma,"Segoe UI",sans-serif;line-height:1.7;font-size:15px}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:8px 0 4px;font-weight:700}
+.sub{color:var(--muted);margin:0 0 20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.panel h2{font-size:1.05rem;margin:0 0 12px;font-weight:700}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.row.three{grid-template-columns:1fr 1fr 1fr}
+label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:2px}
+input[type=text],input[type=number]{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;direction:ltr;text-align:left}
+input.name{direction:rtl;text-align:right}
+input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.site{border:1px dashed var(--line);border-radius:8px;padding:12px;margin-bottom:12px}
+.site h3{margin:0 0 8px;font-size:.95rem}
+button{font:inherit;cursor:pointer;border-radius:6px;padding:8px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+button:hover{filter:brightness(.96)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.msg{font-size:.85rem;color:var(--muted);margin-top:8px;min-height:1.4em}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{font-weight:500;color:var(--muted);text-align:right;padding:4px 4px;font-size:.8rem}
+td{padding:3px 3px}
+td input{padding:6px 6px}
+.obs-wrap{overflow-x:auto}
+.del{padding:4px 9px;color:var(--bad)}
+.verdict{border-radius:8px;padding:12px 14px;font-weight:700;border-inline-start:6px solid var(--muted);background:var(--bg);margin-bottom:12px}
+.verdict.ok{border-color:var(--ok)} .verdict.warn{border-color:var(--warn)} .verdict.bad{border-color:var(--bad)}
+.verdict small{display:block;font-weight:400;color:var(--muted);margin-top:2px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0}
+dt{color:var(--muted)} dd{margin:0;direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+.chartbox{margin-top:16px}
+canvas{width:100%;height:380px;display:block;background:var(--chart-bg);border:1px solid var(--line);border-radius:8px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.82rem;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:18px;height:10px;border-radius:2px;vertical-align:middle;margin-inline-end:6px}
+.obs-res{margin-top:12px;font-size:.88rem}
+.obs-res div{padding:4px 0;border-bottom:1px solid var(--line)}
+.tag{display:inline-block;min-width:74px;text-align:center;border-radius:4px;padding:0 6px;font-size:.78rem;color:#fff;margin-inline-end:8px}
+.tag.ok{background:var(--ok)} .tag.warn{background:var(--warn)} .tag.bad{background:var(--bad)}
+.note{font-size:.8rem;color:var(--muted);margin-top:14px}
+#map{height:480px;border-radius:8px;border:1px solid var(--line);direction:ltr;background:var(--chart-bg);z-index:0}
+.pin{width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--surface);font-weight:700;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.5);font-family:sans-serif}
+.mapbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+button.on{background:var(--warn);color:#fff;border-color:var(--warn)}
+.mapnote{font-size:.82rem;color:var(--muted)}
+#wrap3d{position:relative;display:none;direction:ltr}
+#map3d{height:560px;border-radius:8px;border:1px solid var(--line);background:linear-gradient(var(--sky1),var(--sky2));z-index:0;overflow:hidden}
+#nav3d{position:absolute;top:12px;right:12px;width:116px;height:116px;z-index:5;touch-action:none;user-select:none}
+#sphere{position:absolute;inset:20px;border-radius:50%;background:radial-gradient(circle at 35% 28%,#9cc9ff,#2a64b0 55%,#0b2a52);box-shadow:0 2px 10px rgba(0,0,0,.55),inset 0 0 0 2px rgba(255,255,255,.55);cursor:grab;touch-action:none}
+#sphere:active{cursor:grabbing}
+#needleWrap{position:absolute;inset:0;pointer-events:none}
+#needle{position:absolute;left:calc(50% - 7px);top:7px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:20px solid #ff4d4d;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
+#needleN{position:absolute;left:0;right:0;top:26px;text-align:center;font:700 11px sans-serif;color:#fff;text-shadow:0 1px 2px #000}
+.nb{position:absolute;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.7);background:rgba(20,30,40,.65);color:#fff;font-size:11px;line-height:1;cursor:pointer}
+.nb.up{top:0;left:46px}.nb.dn{bottom:0;left:46px}.nb.lf{left:0;top:46px}.nb.rt{right:0;top:46px}
+#hud3d{position:absolute;top:12px;left:56px;z-index:5;max-width:55%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-inline-start:6px solid var(--muted);border-radius:6px;padding:4px 10px;font-size:.85rem;font-weight:700;direction:rtl}
+select{font:inherit;padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.badge{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:.75rem;font-family:inherit;white-space:nowrap}
+  .linkbadge{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;justify-content:space-between;border-radius:8px;padding:12px 16px;margin-bottom:12px;color:#fff;font-weight:700;font-size:1.15rem}
+  .linkbadge small{font-weight:400;font-size:.85rem;opacity:.95;direction:ltr}
+  .linkbadge.ok{background:var(--ok)} .linkbadge.warn{background:var(--warn)} .linkbadge.bad{background:var(--bad)}
+  .brand{display:flex;align-items:center;gap:16px;padding:6px 0 14px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+  .brand img{height:64px;width:auto;display:block}
+  .brand p{margin:0;font-weight:700;font-size:1.05rem;border-inline-start:3px solid var(--accent);padding-inline-start:14px}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .brand img{filter:brightness(2.2)} }
+  .site-foot{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);text-align:center;color:var(--muted);font-size:.88rem;line-height:2}
+  .promo{background:linear-gradient(135deg,#2a2784,#4f49cf);color:#fff;border-radius:16px;padding:28px 22px;box-shadow:0 6px 22px rgba(42,39,132,.35);margin-bottom:14px}
+  .promo-title{font-size:1.9rem;font-weight:800;line-height:1.6;margin-bottom:6px}
+  .promo-sub{font-size:1.4rem;font-weight:700;line-height:2;color:#fff}
+  .promo-tel{font-size:1.7rem;font-weight:800;color:#ffd166;text-decoration:none;direction:ltr;unicode-bidi:isolate;white-space:nowrap;letter-spacing:.5px}
+  .promo-btn{display:inline-block;margin-top:14px;background:#f59e0b;color:#1b1b3a;font-weight:800;font-size:1.15rem;padding:11px 32px;border-radius:999px;text-decoration:none;box-shadow:0 3px 10px rgba(0,0,0,.3)}
+  .promo-btn:hover{filter:brightness(1.08)}
+  .copy{font-size:.85rem}
+  @media (max-width:560px){ .promo-sub{font-size:1.15rem} .promo-tel{font-size:1.4rem} }
+  @media (max-width:560px){ .brand img{height:48px} .brand p{font-size:.9rem} }
+  .site h3{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between}
+  .siteacts{display:flex;flex-wrap:wrap;gap:6px}
+  button.mini{padding:4px 10px;font-size:.8rem;border-radius:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><img src="data:image/png;base64,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" alt="لوگوی آرتا شبکه صنعت رایان"><p>طراحی - تامین و اجرای ارتباط وایرلس</p></div>
+  <h1>محاسبه‌گر لینک وایرلس و ناحیه فرنل</h1>
+  <p class="sub">مختصات دو نقطه، فرکانس و ارتفاع آنتن‌ها را وارد کنید و موانع مسیر را اضافه کنید تا ببینید لینک قطع می‌شود یا نه.</p>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>مشخصات لینک</h2>
+      <p class="note" style="margin:0 0 10px">مختصات را با هر فرمتی می‌توانید تایپ یا پیست کنید: <bdi dir="ltr">35.6892, 51.3890</bdi> ، <bdi dir="ltr">35°41′21.1″N 51°23′20.4″E</bdi> ، <bdi dir="ltr">35°41.352′N 51°23.340′E</bdi> ، لینک گوگل مپ و حتی ارقام فارسی. اگر دو عدد را در یکی از دو کادر پیست کنید، هر دو کادر خودکار پر می‌شوند.</p>
+
+      <div class="site">
+        <h3><span>نقطه A</span><span class="siteacts"><button type="button" class="mini" data-pick="A">🖱 انتخاب روی نقشه</button><button type="button" class="mini" data-gps="A">📍 موقعیت فعلی من (GPS)</button><button type="button" class="mini" data-swap="A">⇄ جابه‌جایی عرض و طول</button></span></h3>
+        <div class="row">
+          <div><label>نام</label><input class="name" type="text" id="nameA" value="نقطه A"></div>
+          <div><label>ارتفاع آنتن از زمین (متر)</label><input type="number" id="antA" value="20" step="any"></div>
+        </div>
+        <div class="row three">
+          <div><label>عرض جغرافیایی</label><input type="text" id="latA" value="" data-coord="lat" autocomplete="off" spellcheck="false" placeholder="35.6892"></div>
+          <div><label>طول جغرافیایی</label><input type="text" id="lonA" value="" data-coord="lon" autocomplete="off" spellcheck="false" placeholder="51.3890"></div>
+          <div><label>ارتفاع زمین از دریا (متر) — خودکار</label><input type="number" id="gA" value="" step="any" placeholder="خودکار"></div>
+        </div>
+      </div>
+
+      <div class="site">
+        <h3><span>نقطه B</span><span class="siteacts"><button type="button" class="mini" data-pick="B">🖱 انتخاب روی نقشه</button><button type="button" class="mini" data-gps="B">📍 موقعیت فعلی من (GPS)</button><button type="button" class="mini" data-swap="B">⇄ جابه‌جایی عرض و طول</button></span></h3>
+        <div class="row">
+          <div><label>نام</label><input class="name" type="text" id="nameB" value="نقطه B"></div>
+          <div><label>ارتفاع آنتن از زمین (متر)</label><input type="number" id="antB" value="20" step="any"></div>
+        </div>
+        <div class="row three">
+          <div><label>عرض جغرافیایی</label><input type="text" id="latB" value="" data-coord="lat" autocomplete="off" spellcheck="false" placeholder="35.6892"></div>
+          <div><label>طول جغرافیایی</label><input type="text" id="lonB" value="" data-coord="lon" autocomplete="off" spellcheck="false" placeholder="51.3890"></div>
+          <div><label>ارتفاع زمین از دریا (متر) — خودکار</label><input type="number" id="gB" value="" step="any" placeholder="خودکار"></div>
+        </div>
+      </div>
+
+      <div class="site">
+        <h3>رادیو و آنتن (برای بودجه لینک)</h3>
+        <div class="row three">
+          <div><label>توان خروجی رادیو (dBm)</label><input type="number" id="txp" value="25" step="any"></div>
+          <div><label>گین آنتن A (dBi)</label><input type="number" id="gainA" value="23" step="any"></div>
+          <div><label>گین آنتن B (dBi)</label><input type="number" id="gainB" value="23" step="any"></div>
+        </div>
+        <div class="row three">
+          <div><label>افت کابل و کانکتور، جمع دو سمت (dB)</label><input type="number" id="cable" value="1" step="any" min="0"></div>
+          <div><label>حساسیت گیرنده (dBm)</label><input type="number" id="sens" value="-76" step="any"></div>
+          <div><label>افت‌های دیگر مثل باران (dB)</label><input type="number" id="oloss" value="0" step="any" min="0"></div>
+        </div>
+        <div class="row">
+          <div><label>حاشیه فید مطلوب (dB)</label><input type="number" id="fadeT" value="15" step="any" min="0"></div>
+          <div></div>
+        </div>
+        <p class="note" style="margin:0">اعداد بالا فقط نمونه‌اند. توان، گین و حساسیت (که به مدولاسیون و پهنای کانال بستگی دارد) را از دیتاشیت رادیو و آنتن بگذارید.</p>
+      </div>
+
+      <div class="row three">
+        <div><label>فرکانس (گیگاهرتز)</label><input type="number" id="freq" value="5.8" step="any" min="0.1"></div>
+        <div><label>ضریب k زمین</label><input type="number" id="kf" value="1.33" step="0.01" min="0.5"></div>
+        <div><label>حداقل فضای آزاد فرنل (٪)</label><input type="number" id="req" value="60" step="1" min="0" max="100"></div>
+      </div>
+      <div class="row">
+        <div><label>فاصله (کیلومتر) — از مختصات محاسبه می‌شود</label><input type="number" id="dist" step="any" min="0.01"></div>
+        <div></div>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="btnProfile" type="button">به‌روزرسانی ارتفاع زمین</button>
+        <button id="btnKml" type="button">خروجی KML برای Google Earth</button>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>موانع مسیر</h2>
+      <div class="obs-wrap">
+        <table>
+          <thead><tr>
+            <th>نام</th><th>فاصله از A (کیلومتر)</th><th>ارتفاع زمین از دریا (متر) — خودکار</th><th>ارتفاع مانع (متر)</th><th></th>
+          </tr></thead>
+          <tbody id="obsBody"></tbody>
+        </table>
+      </div>
+      <div class="actions"><button id="addObs" type="button">افزودن مانع</button></div>
+      <p class="note">ارتفاع زمین هر مانع خودکار از داده ارتفاعی مسیر پر می‌شود؛ اگر عدد دیگری بنویسید همان استفاده می‌شود و اگر خالی‌اش کنید دوباره خودکار می‌شود. «ارتفاع مانع» ارتفاع ساختمان یا درخت از سطح زمین است.</p>
+
+      <h2 style="margin-top:18px">نتیجه</h2>
+      <div id="linkBadge" class="linkbadge" style="display:none"></div>
+      <div id="verdict" class="verdict">در حال محاسبه…</div>
+      <div id="budgetBox" class="verdict" style="display:none"></div>
+      <dl id="stats"></dl>
+      <h2 style="margin:16px 0 8px;font-size:.95rem">بودجه لینک</h2>
+      <dl id="budgetStats"></dl>
+      <div class="obs-res" id="obsRes"></div>
+    </div>
+  </div>
+
+  <div class="chartbox panel">
+    <h2>نقشه ماهواره‌ای و مسیر سیگنال</h2>
+    <div class="mapbar">
+      <button type="button" id="btn2d" class="primary">نمای ۲بعدی</button>
+      <button type="button" id="btn3d">نمای ۳بعدی چرخان</button>
+      <button type="button" id="btnFit">نمایش کل مسیر</button>
+      <select id="imgSel" style="display:none" aria-label="منبع تصویر">
+        <option value="sat">تصویر ماهواره Esri</option>
+        <option value="topo">نقشه توپوگرافی</option>
+        <option value="streets">نقشه خیابان</option>
+      </select>
+      <button type="button" id="btnPickA">📍 نقطه A را روی نقشه بگذار</button>
+      <button type="button" id="btnPickB">📍 نقطه B را روی نقشه بگذار</button>
+      <button type="button" id="btnPick">افزودن مانع با کلیک روی نقشه</button>
+      <span class="mapnote" id="mapNote">برای جابه‌جایی نقطه‌ها، A و B را روی نقشه بکشید.</span>
+    </div>
+    <div class="mapbar" id="exagBar" style="display:none">
+      <label for="exag" style="margin:0;color:var(--ink)">اغراق ارتفاع: <b id="exagVal">1</b>×</label>
+      <input type="range" id="exag" min="1" max="30" step="1" value="1" style="width:200px;direction:ltr">
+      <button type="button" id="exagAuto">خودکار</button>
+      <span class="mapnote">در لینک‌های بلند، ارتفاع‌ها بزرگ‌تر نشان داده می‌شوند تا بیضی فرنل، دکل‌ها و مانع‌ها دیده شوند. نسبت‌ها حفظ می‌شود.</span>
+    </div>
+    <div id="map"></div>
+    <div id="wrap3d">
+      <div id="map3d"></div>
+      <div id="hud3d"></div>
+      <div id="nav3d">
+        <button type="button" class="nb up" data-a="up" title="نگاه از بالاتر">▲</button>
+        <button type="button" class="nb dn" data-a="dn" title="نگاه از کنار">▼</button>
+        <button type="button" class="nb lf" data-a="lf" title="چرخش به چپ">◀</button>
+        <button type="button" class="nb rt" data-a="rt" title="چرخش به راست">▶</button>
+        <div id="sphere" title="بکشید تا بچرخد. سوزن قرمز جهت B را نشان می‌دهد. کلیک = نمای از کنار"><div id="needleWrap"><div id="needle"></div><div id="needleN">B</div></div></div>
+      </div>
+    </div>
+    <div class="legend" id="legend3d" style="display:none">
+      <span><i style="background:var(--fresnel-line);opacity:.5"></i>بیضی ناحیه فرنل (با همان ضریب بزرگ‌نمایی)</span>
+      <span><i style="background:#f5a623;height:3px"></i>حد فضای آزاد لازم</span>
+      <span><i style="background:#ff2d2d;height:4px"></i>خط سیگنال</span>
+      <span><i style="background:#1a1a1a;width:4px;height:14px"></i>دکل (تا ارتفاع آنتن)</span>
+      <span><i style="background:var(--ok)"></i>مانع آزاد</span>
+      <span><i style="background:var(--warn)"></i>فرنل مسدود</span>
+      <span><i style="background:var(--bad)"></i>قطع خط دید / مقطع قرمز</span>
+    </div>
+    <div class="legend" id="legend2d">
+      <span><i style="background:var(--fresnel-line);opacity:.35"></i>ناحیه اول فرنل (از بالا)</span>
+      <span><i style="background:transparent;border-top:2px dashed var(--fresnel-line);height:0"></i>حد فضای آزاد لازم</span>
+      <span><i style="background:#ff2d2d;height:3px"></i>مسیر مستقیم لینک</span>
+      <span><i style="background:var(--bad)"></i>نقطه بحرانی یا مانع مسدودکننده</span>
+    </div>
+  </div>
+
+  <div class="chartbox panel">
+    <h2>نیم‌رخ مسیر</h2>
+    <label style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input type="checkbox" id="zoomLink"> بزرگ‌نمایی روی خود لینک (زمین‌های خیلی بلندتر بریده می‌شوند)</label>
+    <canvas id="cv"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--terrain)"></i>زمین (با انحنای زمین)</span>
+      <span><i style="background:var(--fresnel)"></i>ناحیه اول فرنل</span>
+      <span><i style="background:transparent;border-top:2px dashed var(--fresnel-line);height:0"></i>حد فضای آزاد لازم</span>
+      <span><i style="background:var(--ink);height:2px"></i>خط دید</span>
+      <span><i style="background:var(--bad)"></i>مانع</span>
+    </div>
+  </div>
+
+  <p class="note">محاسبه بر پایه شعاع ناحیه اول فرنل r = 17.32·√(d1·d2 / (f·D)) و برآمدگی زمین h = d1·d2 / (12.75·k) انجام می‌شود (فاصله‌ها کیلومتر، فرکانس گیگاهرتز، نتیجه متر). پروفایل زمین فقط ارتفاع زمین را دارد و ساختمان و درخت را شامل نمی‌شود. برای طراحی نهایی، نتیجه را با ابزار تخصصی مثل LINKPlanner یا بازدید میدانی تأیید کنید.</p>
+
+  <footer class="site-foot">
+    <div class="promo">
+      <div class="promo-sub">جهت دریافت مشاوره و قیمت با شرکت آرتا شبکه صنعت رایان با شماره <a class="promo-tel" href="tel:+982192001392">021-92001392</a> تماس حاصل فرمایید.</div>
+    </div>
+    <div class="copy">کپی رایت متعلق به شرکت آرتا شبکه صنعت رایان &nbsp;-&nbsp; <span dir="ltr" style="unicode-bidi:isolate">ver:4.14.3</span></div>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var R_EARTH = 6371;
+  var profile = null; // array of ground elevations, evenly spaced from A to B
+  var lastResult = null;
+
+  function num(id){
+    var el = $(id);
+    if(el.dataset && el.dataset.coord){ var c = parseFloat(el.dataset.val); return isNaN(c) ? null : c; }
+    var v = parseFloat(el.value); return isNaN(v) ? null : v;
+  }
+
+  // ---------- coordinate input in any format ----------
+  function normalizeCoordText(raw){
+    var t = String(raw == null ? '' : raw);
+    if(/https?:\/\//i.test(t)){   // map links (Google Maps and similar)
+      var m = t.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/) || t.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/) ||
+              t.match(/[?&](?:q|ll|query|destination|center)=(-?\d+(?:\.\d+)?)(?:,|%2C)\s*(-?\d+(?:\.\d+)?)/i);
+      if(m) t = m[1]+','+m[2];
+    }
+    t = t.replace(/[\u06F0-\u06F9]/g, function(d){ return String(d.charCodeAt(0)-0x06F0); })
+         .replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0)-0x0660); })
+         .replace(/\u066B/g, '.').replace(/\u066C/g, '')
+         .replace(/[\u060C\u061B]/g, ',')
+         .replace(/[\u2212\u2012\u2013\u2014]/g, '-');
+    t = t.replace(/شمالی|شمال/g, ' N ').replace(/جنوبی|جنوب/g, ' S ').replace(/شرقی|شرق/g, ' E ').replace(/غربی|غرب/g, ' W ')
+         .replace(/north/gi, ' N ').replace(/south/gi, ' S ').replace(/east/gi, ' E ').replace(/west/gi, ' W ');
+    var iLat = [t.search(/lat/i), t.search(/عرض/)].filter(function(i){return i>=0;}).sort(function(a,b){return a-b;})[0];
+    var iLon = [t.search(/lon|lng/i), t.search(/طول/)].filter(function(i){return i>=0;}).sort(function(a,b){return a-b;})[0];
+    var labelSwap = (iLon !== undefined && iLat !== undefined && iLon < iLat);
+    t = t.replace(/degrees?|deg/gi, '°').replace(/minutes?|min/gi, "'").replace(/seconds?|sec/gi, '"');
+    t = t.replace(/[\u00B0\u00BA\u02DA]/g, '°').replace(/[\u2032\u2019\u2018`\u02B9\u00B4]/g, "'").replace(/[\u2033\u201D\u201C\u02BA]/g, '"');
+    t = t.replace(/'{2}/g, '"');
+    t = t.replace(/[A-Za-z\u0600-\u06FF]{2,}/g, ' ');
+    if(/^\s*[+-]?\d+,\d{3,}(\s+[+-]?\d+,\d{3,})?\s*$/.test(t)) t = t.replace(/,/g, '.');   // decimal comma
+    return {text:t, labelSwap:labelSwap};
+  }
+
+  function groupToDegrees(g){
+    var raw0 = g.nums[0].raw, neg = raw0.charAt(0) === '-' || g.hemi === 'S' || g.hemi === 'W';
+    var parts = [0,0,0], i;
+    for(i=0;i<g.nums.length;i++){
+      var u = g.units ? g.units[i] : i;
+      if(u > 2) return null;
+      parts[u] = Math.abs(parseFloat(g.nums[i].raw));
+    }
+    if(g.nums.length > 1 && (parts[1] >= 60 || parts[2] >= 60)) return null;
+    var v = parts[0] + parts[1]/60 + parts[2]/3600;
+    return {v: neg ? -v : v, hemi: g.hemi};
+  }
+
+  function parseCoordText(raw){
+    var n = normalizeCoordText(raw), t = n.text, re = /([NSEWnsew])|([+-]?\d+(?:\.\d+)?|[+-]?\.\d+)|([\u00B0'"])|([,;\/|])/g, m, tokens = [];
+    while((m = re.exec(t)) !== null){
+      if(m[1]) tokens.push({t:'h', v:m[1].toUpperCase()});
+      else if(m[2]) tokens.push({t:'n', raw:m[2]});
+      else if(m[3]) tokens.push({t:'s', v:m[3]});
+      else tokens.push({t:','});
+    }
+    var hasH = tokens.some(function(k){return k.t==='h';}), hasS = tokens.some(function(k){return k.t==='s';});
+    if(!tokens.some(function(k){return k.t==='n';})) return {ok:false};
+    var groups = [], cur = null, i;
+    if(hasH){
+      var tk = tokens.filter(function(k){ return k.t==='h' || k.t==='n'; });
+      if(tk[0].t === 'h'){            // N 35 41 21  E 51 23 20
+        tk.forEach(function(k){
+          if(k.t === 'h'){ cur = {nums:[], hemi:k.v}; groups.push(cur); }
+          else cur.nums.push(k);
+        });
+      } else {                        // 35 41 21 N  51 23 20 E
+        cur = {nums:[], hemi:null};
+        tk.forEach(function(k){
+          if(k.t === 'n') cur.nums.push(k);
+          else { cur.hemi = k.v; groups.push(cur); cur = {nums:[], hemi:null}; }
+        });
+        if(cur.nums.length) groups.push(cur);
+      }
+      if(groups.some(function(g){ return g.nums.length < 1 || g.nums.length > 3; })) return {ok:false};
+    } else if(hasS){
+      for(i=0;i<tokens.length;i++){
+        var k = tokens[i];
+        if(k.t === ','){ cur = null; continue; }
+        if(k.t !== 'n') continue;
+        var unit = null, nx = tokens[i+1];
+        if(nx && nx.t === 's'){ unit = nx.v === '\u00B0' ? 0 : (nx.v === "'" ? 1 : 2); i++; }
+        if(unit === null) unit = cur ? cur.last+1 : 0;
+        if(!cur || unit <= cur.last || unit > 2){ cur = {nums:[], units:[], last:-1, hemi:null}; groups.push(cur); }
+        if(cur.nums.length === 0 && unit !== 0) return {ok:false};
+        cur.nums.push(k); cur.units.push(unit); cur.last = unit;
+      }
+    } else {
+      var nums = tokens.filter(function(k){return k.t==='n';});
+      var c = nums.length;
+      if(c === 1 || c === 2){ nums.forEach(function(k){ groups.push({nums:[k], hemi:null}); }); }
+      else if(c === 3){ groups.push({nums:nums, hemi:null}); }
+      else if(c === 4){ groups.push({nums:nums.slice(0,2), hemi:null}); groups.push({nums:nums.slice(2), hemi:null}); }
+      else if(c === 6){ groups.push({nums:nums.slice(0,3), hemi:null}); groups.push({nums:nums.slice(3), hemi:null}); }
+      else return {ok:false};
+    }
+    var items = groups.map(groupToDegrees);
+    if(!items.length || items.length > 2 || items.some(function(x){ return x === null || !isFinite(x.v); })) return {ok:false};
+    return {ok:true, items:items, labelSwap:n.labelSwap};
+  }
+
+  // returns {lat, lon, swapped} or null
+  function assignLatLon(items, labelSwap){
+    var a = items[0], b = items[1], lat, lon, swapped = false;
+    var isLat = function(h){ return h === 'N' || h === 'S'; };
+    if(a.hemi && b.hemi){
+      if(isLat(a.hemi) === isLat(b.hemi)) return null;
+      lat = isLat(a.hemi) ? a.v : b.v; lon = isLat(a.hemi) ? b.v : a.v;
+    } else if(a.hemi){
+      if(isLat(a.hemi)){ lat = a.v; lon = b.v; } else { lon = a.v; lat = b.v; }
+    } else if(b.hemi){
+      if(isLat(b.hemi)){ lat = b.v; lon = a.v; } else { lon = b.v; lat = a.v; }
+    } else {
+      var f = a.v, sn = b.v; lat = f; lon = sn;
+      if(labelSwap){ lat = sn; lon = f; }
+      else if(Math.abs(f) > 90 && Math.abs(sn) <= 90){ lat = sn; lon = f; }
+      else if(Math.abs(f) >= 44 && Math.abs(f) <= 64 && Math.abs(sn) >= 25 && Math.abs(sn) <= 40){ lat = sn; lon = f; swapped = true; }
+    }
+    if(!(Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) return null;
+    return {lat:lat, lon:lon, swapped:swapped};
+  }
+
+  function setCoordValue(id, v){
+    var el = $(id); el.value = (+v).toFixed(6); el.dataset.val = String(+v);
+  }
+  function coordChanged(){ profile = null; syncDistance(); schedule(); autoProfile(); if(!mode3d) fitView(); }
+
+  function applyCoordText(el, kind, latEl, lonEl, commit){
+    var txt = el.value;
+    if(txt.trim() === ''){ delete el.dataset.val; if(commit) coordChanged(); return; }
+    var res = parseCoordText(txt);
+    if(!res.ok){
+      delete el.dataset.val;
+      if(commit) setMsg('فرمت مختصات تشخیص داده نشد. نمونه‌ها: 35.6892, 51.3890 یا 35°41′21″N 51°23′20″E');
+      return;
+    }
+    if(res.items.length === 2){                       // a pair pasted into one box
+      if(!commit) return;
+      var p = assignLatLon(res.items, res.labelSwap);
+      if(!p){ setMsg('عرض و طول از هم تشخیص داده نشد یا خارج از محدوده است. عرض باید بین -90 و 90 و طول بین -180 و 180 باشد.'); return; }
+      setCoordValue(latEl.id, p.lat); setCoordValue(lonEl.id, p.lon);
+      setMsg('مختصات تشخیص داده شد — عرض: '+p.lat.toFixed(6)+'، طول: '+p.lon.toFixed(6)+(p.swapped ? ' (ترتیب «طول، عرض» تشخیص داده شد و جابه‌جا شد؛ اگر اشتباه است دکمه «جابه‌جایی عرض و طول» را بزنید)' : ''));
+      coordChanged();
+      return;
+    }
+    var it = res.items[0], v = it.v;
+    if(it.hemi && ((kind === 'lat') !== (it.hemi === 'N' || it.hemi === 'S'))){
+      delete el.dataset.val;
+      if(commit) setMsg('این مقدار '+(kind === 'lat' ? 'طول' : 'عرض')+' جغرافیایی است ('+it.hemi+')؛ در کادر درست بنویسید.');
+      return;
+    }
+    if(Math.abs(v) > (kind === 'lat' ? 90 : 180)){
+      delete el.dataset.val;
+      if(commit) setMsg((kind === 'lat' ? 'عرض جغرافیایی باید بین -90 و 90' : 'طول جغرافیایی باید بین -180 و 180')+' باشد.');
+      return;
+    }
+    el.dataset.val = String(v);
+    if(commit){ el.value = v.toFixed(6); setMsg('مقدار تشخیص داده شد: '+v.toFixed(6)); coordChanged(); }
+  }
+
+  // read the starting values of the coordinate boxes
+  document.querySelectorAll('[data-coord]').forEach(function(el){ var r = parseCoordText(el.value); if(r.ok && r.items.length === 1) el.dataset.val = String(r.items[0].v); });
+
+  function haversine(lat1, lon1, lat2, lon2){
+    var r = Math.PI/180, dLat=(lat2-lat1)*r, dLon=(lon2-lon1)*r;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return 2*R_EARTH*Math.asin(Math.sqrt(a));
+  }
+
+  function syncDistance(){
+    var la=num('latA'), lo=num('lonA'), lb=num('latB'), ob=num('lonB');
+    if([la,lo,lb,ob].every(function(x){return x!==null;})){
+      $('dist').value = haversine(la,lo,lb,ob).toFixed(3);
+    } else { $('dist').value = ''; }
+  }
+
+  // ---------- obstacles ----------
+  function addObstacle(name, d, g, h){
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input class="name" type="text" value="'+(name||'')+'" placeholder="مثلاً ساختمان"></td>'+
+      '<td><input type="number" step="any" min="0" value="'+(d===undefined?'':d)+'"></td>'+
+      '<td><input type="number" step="any" placeholder="خودکار" value="'+(g===undefined?'':g)+'"></td>'+
+      '<td><input type="number" step="any" min="0" value="'+(h===undefined?'':h)+'"></td>'+
+      '<td><button type="button" class="del" aria-label="حذف مانع">✕</button></td>';
+    tr.querySelector('.del').addEventListener('click', function(){ tr.remove(); schedule(); });
+    tr.querySelectorAll('input').forEach(function(i){ i.addEventListener('input', schedule); });
+    var gin = tr.querySelectorAll('input')[2];
+    if(g !== undefined && g !== '') gin.dataset.manual = '1';
+    gin.addEventListener('input', function(){ if(gin.value === '') delete gin.dataset.manual; else gin.dataset.manual = '1'; });
+    $('obsBody').appendChild(tr);
+  }
+  // ground elevation of each obstacle follows the terrain data unless the user typed a value
+  function refreshObsGround(){
+    var D = num('dist'), gA = num('gA'), gB = num('gB');
+    $('obsBody').querySelectorAll('tr').forEach(function(tr){
+      var ins = tr.querySelectorAll('input'), gin = ins[2];
+      if(gin.dataset.manual) return;
+      var d = parseFloat(ins[1].value);
+      if(D === null || gA === null || gB === null || isNaN(d) || D <= 0){ gin.value = ''; return; }
+      gin.value = Math.round(groundAt(Math.max(0, Math.min(1, d/D)), gA, gB));
+    });
+  }
+  function readObstacles(){
+    var out = [];
+    $('obsBody').querySelectorAll('tr').forEach(function(tr){
+      var ins = tr.querySelectorAll('input');
+      var d = parseFloat(ins[1].value), g = parseFloat(ins[2].value), h = parseFloat(ins[3].value);
+      if(isNaN(d) || isNaN(h)) return;
+      out.push({name: ins[0].value || 'مانع', d: d, g: isNaN(g) ? null : g, h: h});
+    });
+    return out;
+  }
+
+  // ---------- core calculation ----------
+  function groundAt(frac, gA, gB){
+    if(profile && profile.length > 1){
+      var p = frac*(profile.length-1), i = Math.floor(p), t = p - i;
+      var v = (i >= profile.length-1) ? profile[profile.length-1] : profile[i]*(1-t) + profile[i+1]*t;
+      return v + (gA-profile[0])*(1-frac) + (gB-profile[profile.length-1])*frac;
+    }
+    return gA + (gB-gA)*frac;
+  }
+  function bulge(d1, D, k){ return d1*(D-d1)*1000/(2*k*R_EARTH); }
+  function fresnel(d1, D, f){ var d2 = D-d1; return d2<=0||d1<=0 ? 0 : 17.32*Math.sqrt(d1*d2/(f*D)); }
+
+  function compute(){
+    var D = num('dist'), f = num('freq'), k = num('kf'), req = num('req');
+    var gA = num('gA'), gB = num('gB'), aA = num('antA'), aB = num('antB');
+    if([D,f,k,req,gA,gB,aA,aB].some(function(x){return x===null;}) || D<=0 || f<=0 || k<=0) return null;
+    req = req/100;
+    var hA = gA + aA, hB = gB + aB;
+    var lam = 0.299792458/f, obsLoss = 0;
+    function knife(clr, d1km){
+      var d1 = d1km*1000, d2 = (D-d1km)*1000;
+      if(d1 <= 0 || d2 <= 0) return 0;
+      var v = (-clr)*Math.sqrt(2/lam*(1/d1+1/d2));
+      return v > -0.78 ? 6.9 + 20*Math.log10(Math.sqrt((v-0.1)*(v-0.1)+1) + v - 0.1) : 0;
+    }
+    var N = 120, pts = [], worst = {ratio: Infinity, need: 0, at: 0, label: ''};
+    for(var i=0;i<=N;i++){
+      var fr = i/N, d1 = D*fr;
+      var g = groundAt(fr, gA, gB), bl = bulge(d1, D, k);
+      var los = hA + (hB-hA)*fr, F = fresnel(d1, D, f);
+      var terrain = g + bl;
+      pts.push({d: d1, terrain: terrain, los: los, F: F});
+      if(i>0 && i<N && F > 0.5){
+        var clr = los - terrain, ratio = clr/F;
+        var kl0 = knife(clr, d1); if(kl0 > obsLoss) obsLoss = kl0;
+        if(ratio < worst.ratio){ worst = {ratio: ratio, need: req*F - clr, at: d1, label: 'زمین'}; }
+      }
+    }
+    var obs = readObstacles().map(function(o){
+      var d1 = Math.min(Math.max(o.d,0), D), fr = d1/D;
+      var base = o.g !== null ? o.g : groundAt(fr, gA, gB);
+      var top = base + o.h + bulge(d1, D, k);
+      var los = hA + (hB-hA)*fr, F = fresnel(d1, D, f);
+      var clr = los - top, ratio = F>0.01 ? clr/F : (clr>=0 ? 9 : -9);
+      var kl1 = knife(clr, d1); if(kl1 > obsLoss) obsLoss = kl1;
+      var r = {name:o.name, d:d1, top:top, base:base+bulge(d1,D,k), los:los, F:F, clr:clr, ratio:ratio};
+      if(ratio < worst.ratio){ worst = {ratio: ratio, need: req*F - clr, at: d1, label: o.name}; }
+      return r;
+    });
+    var fspl = 92.45 + 20*Math.log10(D) + 20*Math.log10(f);
+    var Fmid = fresnel(D/2, D, f);
+    var txp=num('txp'), gainA=num('gainA'), gainB=num('gainB'), cable=num('cable'), sens=num('sens'), oloss=num('oloss'), fadeT=num('fadeT'), budget=null;
+    if([txp,gainA,gainB,cable,sens,oloss,fadeT].every(function(v){return v!==null;})){
+      var fixed = txp + gainA + gainB - cable - oloss;
+      var rx = fixed - fspl - obsLoss;
+      var allowed = fixed - sens - fadeT;
+      budget = {txp:txp, gainA:gainA, gainB:gainB, cable:cable, sens:sens, oloss:oloss, fadeT:fadeT, obsLoss:obsLoss,
+        eirp: txp + gainA - cable/2, rx: rx, margin: rx - sens, needMore: Math.max(0, fadeT - (rx - sens)),
+        dmax: Math.pow(10, (allowed - 92.45 - 20*Math.log10(f))/20)};
+    }
+    return {D:D,f:f,k:k,req:req,hA:hA,hB:hB,pts:pts,obs:obs,worst:worst,fspl:fspl,Fmid:Fmid,aA:aA,aB:aB,budget:budget};
+  }
+
+  function classify(ratio, req){
+    if(ratio >= 1) return 'ok-full';
+    if(ratio >= req) return 'ok';
+    if(ratio >= 0) return 'warn';
+    return 'bad';
+  }
+
+  // ---------- rendering results ----------
+  function render(){
+    refreshObsGround();
+    updateMarkers();
+    var r = compute();
+    lastResult = r;
+    if(!r){
+      $('verdict').className = 'verdict';
+      $('verdict').innerHTML = 'نقطه A و B را روی نقشه مشخص کنید (کلیک روی نقشه) یا مختصاتشان را وارد کنید.<small>ارتفاع زمین دو نقطه بعد از ثبت مختصات خودکار گرفته می‌شود؛ اگر نشد، دستی وارد کنید.</small>';
+      $('stats').innerHTML = ''; $('obsRes').innerHTML = '';
+      $('linkBadge').style.display = 'none'; $('budgetBox').style.display = 'none'; $('budgetStats').innerHTML = '';
+      $('hud3d').textContent = '';
+      clearMapOverlay();
+      draw(null); return;
+    }
+    var w = r.worst, cls = classify(w.ratio, r.req), vc, title, detail;
+    var pct = (w.ratio*100);
+    if(cls==='ok-full'){ vc='ok'; title='مسیر کاملاً آزاد است'; detail='ناحیه اول فرنل بدون مانع است.'; }
+    else if(cls==='ok'){ vc='ok'; title='مسیر قابل قبول است'; detail='حداقل فضای آزاد '+(r.req*100).toFixed(0)+'٪ فرنل رعایت شده است.'; }
+    else if(cls==='warn'){ vc='warn'; title='فرنل مسدود شده، لینک ضعیف یا ناپایدار می‌شود'; detail='خط دید قطع نشده ولی فضای آزاد کافی نیست.'; }
+    else { vc='bad'; title='خط دید قطع می‌شود'; detail='مانع بالاتر از خط دید است.'; }
+    if(cls==='warn' || cls==='bad'){
+      detail += ' بحرانی‌ترین نقطه: «'+escapeHtml(w.label)+'» در '+w.at.toFixed(2)+' کیلومتری A. برای رفع آن هر دو آنتن را حدود '+Math.max(0,w.need).toFixed(1)+' متر بالاتر ببرید.';
+    }
+    $('verdict').className = 'verdict '+vc;
+    $('verdict').innerHTML = title + '<small>' + detail + '</small>';
+    $('hud3d').textContent = title;
+    $('hud3d').style.borderInlineStartColor = css(vc==='ok' ? '--ok' : (vc==='warn' ? '--warn' : '--bad'));
+
+    var rows = [
+      ['فاصله لینک', r.D.toFixed(2)+' km'],
+      ['شعاع فرنل در وسط مسیر', r.Fmid.toFixed(1)+' m'],
+      ['فضای آزاد 60٪ فرنل در وسط مسیر', (0.6*r.Fmid).toFixed(1)+' m'],
+      ['افت مسیر در فضای آزاد (FSPL)', r.fspl.toFixed(1)+' dB'],
+      ['کمترین فضای آزاد نسبت به فرنل', (isFinite(pct)?pct.toFixed(0):'—')+' %'],
+      ['ارتفاع آنتن‌ها از سطح دریا', r.hA.toFixed(0)+' m / '+r.hB.toFixed(0)+' m']
+    ];
+    $('stats').innerHTML = rows.map(function(x){ return '<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>'; }).join('');
+
+    renderBudget(r);
+
+    $('obsRes').innerHTML = r.obs.map(function(o){
+      var c = classify(o.ratio, r.req), t, tc;
+      if(c==='ok-full'){t='آزاد';tc='ok';} else if(c==='ok'){t='قابل قبول';tc='ok';} else if(c==='warn'){t='فرنل مسدود';tc='warn';} else {t='قطع خط دید';tc='bad';}
+      return '<div><span class="tag '+tc+'">'+t+'</span>'+escapeHtml(o.name)+' — '+o.d.toFixed(2)+' km، فاصله تا خط دید: '+o.clr.toFixed(1)+' m، فرنل پوشیده‌نشده: '+(o.F>0.01?(o.ratio*100).toFixed(0):'—')+'٪</div>';
+    }).join('');
+    draw(r);
+    updateMap(r);
+    if(mode3d){ syncExag(r); build3d(r); }
+  }
+  function renderBudget(r){
+    var b = r.budget, box = $('budgetBox'), dl = $('budgetStats');
+    if(!b){ box.style.display = 'none'; $('linkBadge').style.display = 'none'; dl.innerHTML = ''; return; }
+    box.style.display = '';
+    var m = b.margin, blocked = r.worst.ratio < 0, partial = r.worst.ratio < r.req, cls, title, detail;
+    if(m < 0){ cls = 'bad'; title = 'با این مشخصات لینک برقرار نمی‌شود'; detail = 'سطح سیگنال دریافتی '+b.rx.toFixed(1)+' dBm است و از حساسیت رادیو ('+b.sens+' dBm) کمتر است.'; }
+    else if(m < 10){ cls = 'warn'; title = 'لینک شاید بالا بیاید ولی شکننده و ناپایدار است'; detail = 'حاشیه فید فقط '+m.toFixed(1)+' dB است. باران، مه یا تداخل می‌تواند آن را قطع کند.'; }
+    else if(m < b.fadeT){ cls = 'ok'; title = 'لینک برقرار می‌شود ولی حاشیه کمتر از مقدار مطلوب است'; detail = 'حاشیه فید '+m.toFixed(1)+' dB است (مطلوب شما '+b.fadeT+' dB).'; }
+    else { cls = 'ok'; title = 'سطح سیگنال برای یک لینک پایدار کافی است'; detail = 'حاشیه فید '+m.toFixed(1)+' dB است.'; }
+    if(blocked){
+      if(cls === 'ok') cls = 'warn';
+      detail += ' ولی خط دید توسط «'+escapeHtml(r.worst.label)+'» قطع شده (افت پراش حدود '+b.obsLoss.toFixed(1)+' dB لحاظ شده). چنین لینکی معمولاً نوسان و افت شدید دارد؛ اول ارتفاع آنتن‌ها را حدود '+Math.max(0, r.worst.need).toFixed(1)+' متر بالا ببرید.';
+    } else if(partial){
+      detail += ' فرنل تا حدی مسدود است (افت حدود '+b.obsLoss.toFixed(1)+' dB لحاظ شده).';
+    }
+    if(b.needMore > 0.5) detail += ' برای رسیدن به حاشیه '+b.fadeT+' dB باید حدود '+b.needMore.toFixed(1)+' dB توان یا گین بیشتر داشته باشید. دو برابر کردن قطر دیش حدود ۶ dB گین اضافه می‌کند.';
+    box.className = 'verdict ' + cls;
+    box.innerHTML = title + '<small>' + detail + '</small>';
+    var bd = $('linkBadge'), btxt, bcls;
+    if(m < 0){ bcls = 'bad'; btxt = '✖ لینک برقرار نمی‌شود'; }
+    else if(blocked){ bcls = 'warn'; btxt = '✔ سیگنال کافی است، ولی خط دید قطع است'; }
+    else if(m < 10){ bcls = 'warn'; btxt = '✔ لینک برقرار می‌شود (حاشیه کم)'; }
+    else { bcls = 'ok'; btxt = '✔ لینک برقرار می‌شود'; }
+    bd.className = 'linkbadge ' + bcls; bd.style.display = '';
+    bd.innerHTML = '<span>'+btxt+'</span><small>Rx '+b.rx.toFixed(1)+' dBm '+(m>=0?'&gt;':'&lt;')+' Sens '+b.sens+' dBm · Margin '+m.toFixed(1)+' dB</small>';
+    $('hud3d').textContent += ' | ' + btxt;
+    var rows = [
+      ['توان خروجی رادیو', b.txp.toFixed(1)+' dBm'],
+      ['EIRP هر سمت (سقف مجاز را طبق مقررات کشور بررسی کنید)', b.eirp.toFixed(1)+' dBm'],
+      ['گین آنتن‌ها (A / B)', b.gainA+' / '+b.gainB+' dBi'],
+      ['افت کابل و کانکتور', b.cable.toFixed(1)+' dB'],
+      ['افت فضای آزاد (FSPL)', r.fspl.toFixed(1)+' dB'],
+      ['افت مانع و پراش', b.obsLoss.toFixed(1)+' dB'],
+      ['افت‌های دیگر', b.oloss.toFixed(1)+' dB'],
+      ['سطح سیگنال دریافتی', b.rx.toFixed(1)+' dBm'],
+      ['حساسیت گیرنده', b.sens+' dBm'],
+      ['حاشیه فید', m.toFixed(1)+' dB'],
+      ['حداکثر برد در فضای آزاد با حاشیه مطلوب', (isFinite(b.dmax) ? b.dmax.toFixed(1) : '—')+' km']
+    ];
+    dl.innerHTML = rows.map(function(x){ return '<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>'; }).join('');
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  // ---------- canvas ----------
+  function css(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function draw(r){
+    var cv = $('cv'), dpr = window.devicePixelRatio || 1;
+    var W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = W*dpr; cv.height = H*dpr;
+    var ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,W,H);
+    if(!r) return;
+    ctx.direction = 'ltr';
+    var padL=56, padR=18, padT=18, padB=34;
+    var pw = W-padL-padR, ph = H-padT-padB;
+    var ymin = Infinity, ymax = -Infinity, zoomLink = $('zoomLink').checked;
+    r.pts.forEach(function(p){
+      ymin = Math.min(ymin, p.los - p.F);
+      ymax = Math.max(ymax, p.los + p.F);
+      if(!zoomLink){ ymin = Math.min(ymin, p.terrain); ymax = Math.max(ymax, p.terrain); }
+    });
+    var linkSpan = (ymax-ymin) || 1;
+    r.obs.forEach(function(o){
+      if(!zoomLink){ ymin = Math.min(ymin, o.base); ymax = Math.max(ymax, o.top); }
+      else if(o.top < ymax + Math.max(60, linkSpan*2)) ymax = Math.max(ymax, o.top);
+    });
+    var span = ymax-ymin || 1, pad = Math.max(10, span*(zoomLink?0.3:0.07));
+    ymin -= pad; ymax += pad*0.6; span = ymax-ymin;
+    function X(d){ return padL + d/r.D*pw; }
+    function Y(h){ return padT + (1-(h-ymin)/span)*ph; }
+
+    // grid
+    ctx.strokeStyle = css('--grid'); ctx.fillStyle = css('--muted'); ctx.lineWidth = 1;
+    ctx.font = '11px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    var ticks = 5;
+    for(var i=0;i<=ticks;i++){
+      var h = ymin + span*i/ticks, y = Y(h);
+      ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+      ctx.fillText(h.toFixed(0)+' m', padL-6, y);
+    }
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    for(var j=0;j<=6;j++){
+      var d = r.D*j/6;
+      ctx.fillText(d.toFixed(r.D<10?1:0)+' km', X(d), H-padB+8);
+    }
+
+    ctx.save(); ctx.beginPath(); ctx.rect(padL, padT, pw, ph); ctx.clip();
+    // fresnel zone (full)
+    ctx.beginPath();
+    r.pts.forEach(function(p,i){ i?ctx.lineTo(X(p.d),Y(p.los+p.F)):ctx.moveTo(X(p.d),Y(p.los+p.F)); });
+    for(var k=r.pts.length-1;k>=0;k--){ var q=r.pts[k]; ctx.lineTo(X(q.d), Y(q.los-q.F)); }
+    ctx.closePath(); ctx.fillStyle = css('--fresnel'); ctx.fill();
+    ctx.strokeStyle = css('--fresnel-line'); ctx.lineWidth = 1; ctx.stroke();
+
+    // terrain
+    ctx.beginPath(); ctx.moveTo(X(0), Y(ymin));
+    r.pts.forEach(function(p){ ctx.lineTo(X(p.d), Y(p.terrain)); });
+    ctx.lineTo(X(r.D), Y(ymin)); ctx.closePath();
+    ctx.globalAlpha = 0.9; ctx.fillStyle = css('--terrain'); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.beginPath(); r.pts.forEach(function(p,i){ i?ctx.lineTo(X(p.d),Y(p.terrain)):ctx.moveTo(X(p.d),Y(p.terrain)); });
+    ctx.strokeStyle = css('--terrain-line'); ctx.lineWidth = 1.5; ctx.stroke();
+
+    // required clearance boundary (lower)
+    ctx.setLineDash([6,4]); ctx.beginPath();
+    r.pts.forEach(function(p,i){ var yy=Y(p.los - r.req*p.F); i?ctx.lineTo(X(p.d),yy):ctx.moveTo(X(p.d),yy); });
+    ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
+
+    // line of sight
+    ctx.beginPath(); ctx.moveTo(X(0),Y(r.hA)); ctx.lineTo(X(r.D),Y(r.hB));
+    ctx.strokeStyle = css('--ink'); ctx.lineWidth = 2; ctx.stroke();
+
+    // masts
+    var gA = r.pts[0].terrain, gB = r.pts[r.pts.length-1].terrain;
+    ctx.lineWidth = 3; ctx.beginPath();
+    ctx.moveTo(X(0),Y(gA)); ctx.lineTo(X(0),Y(r.hA));
+    ctx.moveTo(X(r.D),Y(gB)); ctx.lineTo(X(r.D),Y(r.hB)); ctx.stroke();
+    ctx.fillStyle = css('--ink'); ctx.font = 'bold 13px sans-serif'; ctx.textBaseline='bottom';
+    ctx.textAlign='left'; ctx.fillText('A', X(0)+6, Y(r.hA)-4);
+    ctx.textAlign='right'; ctx.fillText('B', X(r.D)-6, Y(r.hB)-4);
+
+    // obstacles
+    r.obs.forEach(function(o){
+      var c = classify(o.ratio, r.req);
+      var col = (c==='ok-full'||c==='ok') ? css('--ok') : (c==='warn' ? css('--warn') : css('--bad'));
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 6; ctx.lineCap='butt';
+      ctx.beginPath(); ctx.moveTo(X(o.d),Y(o.base)); ctx.lineTo(X(o.d),Y(o.top)); ctx.stroke();
+      ctx.beginPath(); ctx.arc(X(o.d), Y(o.top), 4, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  // ---------- automatic ground elevation (above sea level) ----------
+  var profReq = 0, autoTimer = 0;
+  function fetchElevations(pts){
+    var otd = 'https://api.opentopodata.org/v1/srtm30m?locations='+pts.map(function(q){ return q[0].toFixed(6)+','+q[1].toFixed(6); }).join('|');
+    return fetch(otd)
+      .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
+      .then(function(d){ if(!d.results) throw new Error('پاسخ نامعتبر'); return d.results.map(function(x){ return x.elevation; }); })
+      .catch(function(){
+        var url = 'https://api.open-meteo.com/v1/elevation?latitude='+pts.map(function(q){ return q[0].toFixed(5); }).join(',')+
+                  '&longitude='+pts.map(function(q){ return q[1].toFixed(5); }).join(',');
+        return fetch(url)
+          .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
+          .then(function(d){ if(!d.elevation) throw new Error('پاسخ نامعتبر'); return d.elevation; });
+      });
+  }
+  function autoProfile(){
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(function(){ fetchProfile(true); }, 900);
+  }
+  function fetchProfile(silent){
+    var la=num('latA'), lo=num('lonA'), lb=num('latB'), ob=num('lonB');
+    if([la,lo,lb,ob].some(function(x){return x===null;})){ if(!silent) setMsg('ابتدا مختصات هر دو نقطه را وارد کنید.'); return; }
+    var n = 80, pts = [], my = ++profReq;
+    for(var i=0;i<n;i++){ var t = i/(n-1); pts.push([la+(lb-la)*t, lo+(ob-lo)*t]); }
+    setMsg('در حال دریافت ارتفاع زمین از سطح دریا…');
+    $('btnProfile').disabled = true;
+    fetchElevations(pts)
+      .then(function(arr){
+        if(my !== profReq) return;
+        arr = arr.slice();
+        for(var i=0;i<arr.length;i++){
+          if(arr[i]===null || arr[i]===undefined || isNaN(arr[i])){
+            var prev = null, next = null, a, b;
+            for(a=i-1;a>=0;a--){ if(arr[a]!==null && !isNaN(arr[a])){prev=arr[a];break;} }
+            for(b=i+1;b<arr.length;b++){ if(arr[b]!==null && !isNaN(arr[b])){next=arr[b];break;} }
+            arr[i] = prev!==null ? prev : (next!==null ? next : 0);
+          }
+        }
+        profile = arr;
+        $('gA').value = Math.round(arr[0]);
+        $('gB').value = Math.round(arr[arr.length-1]);
+        setMsg('ارتفاع از سطح دریا به‌صورت خودکار گرفته شد: A = '+Math.round(arr[0])+' متر، B = '+Math.round(arr[arr.length-1])+' متر (دقت حدود ۳۰ متر؛ ساختمان و درخت را ندارد).');
+        schedule();
+      })
+      .catch(function(e){
+        if(my !== profReq) return;
+        setMsg('ارتفاع خودکار گرفته نشد ('+e.message+'). اتصال اینترنت یا فیلترشکن را بررسی کنید، یا ارتفاع دو نقطه را دستی وارد کنید.');
+      })
+      .then(function(){ if(my === profReq) $('btnProfile').disabled = false; });
+  }
+  // ---------- phone GPS ----------
+  function useGps(site){
+    if(!navigator.geolocation){ setMsg('این مرورگر از GPS پشتیبانی نمی‌کند.'); return; }
+    if(window.isSecureContext === false){ setMsg('GPS فقط روی صفحه امن (آدرس https) کار می‌کند. سایت را با https باز کنید.'); return; }
+    setMsg('در حال گرفتن موقعیت از GPS… (اگر پرسید، اجازه دسترسی به مکان را بدهید)');
+    navigator.geolocation.getCurrentPosition(function(pos){
+      var c = pos.coords;
+      setCoordValue('lat'+site, c.latitude); setCoordValue('lon'+site, c.longitude);
+      var acc = Math.round(c.accuracy || 0);
+      setMsg('موقعیت فعلی شما برای نقطه '+site+' ثبت شد (دقت حدود '+acc+' متر).'+(acc > 100 ? ' دقت پایین است؛ بهتر است بیرون و با GPS روشن دوباره امتحان کنید.' : ''));
+      coordChanged();
+      $('btnFit').click();
+    }, function(err){
+      var m = {1:'اجازه دسترسی به موقعیت داده نشد. در تنظیمات مرورگر یا گوشی، دسترسی مکان را برای این سایت فعال کنید.',
+               2:'موقعیت در دسترس نیست. GPS گوشی را روشن کنید یا به جای بازتری بروید.',
+               3:'گرفتن موقعیت بیش از حد طول کشید. دوباره امتحان کنید.'}[err.code] || 'گرفتن موقعیت ناموفق بود.';
+      setMsg(m);
+    }, {enableHighAccuracy:true, timeout:20000, maximumAge:0});
+  }
+
+  function setMsg(t){ $('msg').textContent = t; }
+
+  // ---------- KML export ----------
+  function exportKml(){
+    var la=num('latA'), lo=num('lonA'), lb=num('latB'), ob=num('lonB');
+    if([la,lo,lb,ob].some(function(x){return x===null;})){ setMsg('ابتدا مختصات هر دو نقطه را وارد کنید.'); return; }
+    var nA = escapeHtml($('nameA').value||'A'), nB = escapeHtml($('nameB').value||'B');
+    var kml = '<'+'?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>\n'+
+      '<name>Link '+nA+' - '+nB+'</name>\n'+
+      '<Placemark><name>'+nA+'</name><Point><coordinates>'+lo+','+la+',0</coordinates></Point></Placemark>\n'+
+      '<Placemark><name>'+nB+'</name><Point><coordinates>'+ob+','+lb+',0</coordinates></Point></Placemark>\n'+
+      '<Placemark><name>Link</name><Style><LineStyle><color>ff0000ff</color><width>3</width></LineStyle></Style>'+
+      '<LineString><tessellate>1</tessellate><coordinates>'+lo+','+la+',0 '+ob+','+lb+',0</coordinates></LineString></Placemark>\n'+
+      '</Document></kml>';
+    if(window.ArtaAndroid && typeof window.ArtaAndroid.shareText === 'function'){
+      window.ArtaAndroid.shareText('link.kml', 'application/vnd.google-earth.kml+xml', kml);
+      return;
+    }
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([kml], {type:'application/vnd.google-earth.kml+xml'}));
+    a.download = 'link.kml'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  // ---------- satellite map (Leaflet + Esri imagery) ----------
+  var map = null, mA = null, mB = null, line = null, polyF = null, polyR = null, obsLayer = null, dragging = false, pickMode = null;
+
+  function pinIcon(t){ return L.divIcon({className:'', html:'<div class="pin">'+t+'</div>', iconSize:[30,30], iconAnchor:[15,15]}); }
+
+  function initMap(){
+    var box = $('map');
+    if(typeof L === 'undefined'){ box.innerHTML = '<p style="padding:16px;color:var(--muted)">بارگذاری کتابخانه نقشه انجام نشد. اتصال اینترنت را بررسی کنید.</p>'; return; }
+    var sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Imagery © Esri, Maxar, Earthstar Geographics'});
+    var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap contributors'});
+    var clarity = L.tileLayer('https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, maxNativeZoom:18, attribution:'Imagery © Esri, Maxar'});
+    map = L.map('map', {layers:[sat]});
+    map.setView([32.4, 53.7], 5);
+    L.control.layers({'ماهواره':sat, 'ماهواره Clarity':clarity, 'نقشه خیابان':osm}).addTo(map);
+    mA = L.marker([0,0], {draggable:true, icon:pinIcon('A')});   // added to the map only after the point is set
+    mB = L.marker([0,0], {draggable:true, icon:pinIcon('B')});
+    polyF = L.polygon([], {weight:1, fillOpacity:.28, interactive:false}).addTo(map);
+    polyR = L.polygon([], {weight:2, dashArray:'6 5', fill:false, interactive:false}).addTo(map);
+    line = L.polyline([], {color:'#ff2d2d', weight:3, interactive:false}).addTo(map);
+    obsLayer = L.layerGroup().addTo(map);
+    [[mA,'latA','lonA'],[mB,'latB','lonB']].forEach(function(x){
+      x[0].on('dragstart', function(){ dragging = true; });
+      x[0].on('drag', function(e){
+        var ll = e.target.getLatLng();
+        setCoordValue(x[1], ll.lat); setCoordValue(x[2], ll.lng);
+        profile = null; syncDistance(); schedule();
+      });
+      x[0].on('dragend', function(){ dragging = false; profile = null; autoProfile(); });
+    });
+    map.on('click', function(e){
+      if(!pickMode) return;
+      var ll = e.latlng.wrap ? e.latlng.wrap() : e.latlng;
+      if(pickMode === 'A' || pickMode === 'B'){
+        var site = pickMode;
+        setCoordValue('lat'+site, ll.lat); setCoordValue('lon'+site, ll.lng);
+        var other = site === 'A' ? 'B' : 'A';
+        var next = (num('lat'+other) === null) ? other : null;
+        setPickMode(next);
+        setMsg('نقطه '+site+' ثبت شد.'+(next ? ' حالا روی نقشه کلیک کنید تا نقطه '+next+' هم ثبت شود.' : ' برای جابه‌جایی، آن را بکشید.'));
+        profile = null; syncDistance(); updateMarkers(); schedule(); autoProfile();
+        if(!next) fitView();
+        return;
+      }
+      var la=num('latA'), lo=num('lonA'), lb=num('latB'), ob=num('lonB'), D=num('dist');
+      if([la,lo,lb,ob,D].some(function(v){return v===null;})) return;
+      var cl = Math.cos(((la+lb)/2)*Math.PI/180);
+      var vx=(ob-lo)*cl, vy=(lb-la), wx=(ll.lng-lo)*cl, wy=(ll.lat-la);
+      var len2 = vx*vx+vy*vy; if(!len2) return;
+      var t = Math.max(0, Math.min(1, (wx*vx+wy*vy)/len2));
+      addObstacle('مانع', (D*t).toFixed(2), '', 10);
+      setPickMode(null); schedule();
+      setMsg('مانع اضافه شد. ارتفاع آن را در جدول موانع اصلاح کنید.');
+    });
+    fitView();
+  }
+
+  function updateMarkers(){
+    if(!map) return;
+    [['A',mA],['B',mB]].forEach(function(x){
+      var la = num('lat'+x[0]), lo = num('lon'+x[0]), m = x[1];
+      if(la === null || lo === null){ if(map.hasLayer(m)) map.removeLayer(m); return; }
+      if(!map.hasLayer(m)) m.addTo(map);
+      if(!dragging) m.setLatLng([la,lo]);
+    });
+  }
+  function clearMapOverlay(){
+    if(!map) return;
+    line.setLatLngs([]); polyF.setLatLngs([]); polyR.setLatLngs([]); obsLayer.clearLayers();
+  }
+  function fitView(){
+    if(!map) return;
+    var la=num('latA'), lo=num('lonA'), lb=num('latB'), ob=num('lonB');
+    var a = (la !== null && lo !== null), b = (lb !== null && ob !== null);
+    if(a && b) map.fitBounds([[la,lo],[lb,ob]], {padding:[50,50]});
+    else if(a) map.setView([la,lo], Math.max(map.getZoom(), 14));
+    else if(b) map.setView([lb,ob], Math.max(map.getZoom(), 14));
+    else map.setView([32.4, 53.7], 5);
+  }
+
+  function setPickMode(mode){
+    pickMode = mode || null;
+    $('btnPick').classList.toggle('on', pickMode === 'obs');
+    $('btnPickA').classList.toggle('on', pickMode === 'A');
+    $('btnPickB').classList.toggle('on', pickMode === 'B');
+    document.querySelectorAll('[data-pick]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-pick') === pickMode); });
+    var notes = {A:'روی نقشه کلیک کنید تا «نقطه A» همان‌جا ثبت شود.', B:'روی نقشه کلیک کنید تا «نقطه B» همان‌جا ثبت شود.', obs:'روی محل مانع در نزدیکی مسیر کلیک کنید.'};
+    $('mapNote').textContent = notes[pickMode] || DEFAULT_NOTE;
+    if(map) map.getContainer().style.cursor = pickMode ? 'crosshair' : '';
+  }
+  function setPick(on){ setPickMode(on ? 'obs' : null); }
+
+  function footprint(r, scale, la, lo, lb, ob){
+    var cl = Math.cos(((la+lb)/2)*Math.PI/180);
+    var dx=(ob-lo)*cl*111320, dy=(lb-la)*110540, L2=Math.sqrt(dx*dx+dy*dy);
+    if(!L2) return [];
+    var px=-dy/L2, py=dx/L2, left=[], right=[], n=r.pts.length-1;
+    r.pts.forEach(function(p,i){
+      var f=i/n, lat=la+(lb-la)*f, lon=lo+(ob-lo)*f, off=p.F*scale;
+      left.push([lat+off*py/110540, lon+off*px/(111320*cl)]);
+      right.push([lat-off*py/110540, lon-off*px/(111320*cl)]);
+    });
+    return left.concat(right.reverse());
+  }
+
+  function updateMap(r){
+    if(!map || !r) return;
+    var la=num('latA'), lo=num('lonA'), lb=num('latB'), ob=num('lonB');
+    if([la,lo,lb,ob].some(function(v){return v===null;})) return;
+    line.setLatLngs([[la,lo],[lb,ob]]);
+    var fc = css('--fresnel-line');
+    polyF.setLatLngs(footprint(r,1,la,lo,lb,ob)); polyF.setStyle({color:fc, fillColor:fc});
+    polyR.setLatLngs(footprint(r,r.req,la,lo,lb,ob)); polyR.setStyle({color:fc});
+    obsLayer.clearLayers();
+    r.obs.forEach(function(o){
+      var f=o.d/r.D, c=classify(o.ratio, r.req);
+      var col = (c==='ok-full'||c==='ok') ? css('--ok') : (c==='warn' ? css('--warn') : css('--bad'));
+      L.circleMarker([la+(lb-la)*f, lo+(ob-lo)*f], {radius:8, color:'#fff', weight:2, fillColor:col, fillOpacity:1})
+        .bindTooltip(escapeHtml(o.name)+' — '+o.d.toFixed(2)+' km', {direction:'top'}).addTo(obsLayer);
+    });
+    var w = r.worst, wc = classify(w.ratio, r.req);
+    if(wc==='warn' || wc==='bad'){
+      var fw = w.at/r.D;
+      L.circleMarker([la+(lb-la)*fw, lo+(ob-lo)*fw], {radius:11, color:css('--bad'), weight:3, fill:false})
+        .bindTooltip('نقطه بحرانی: '+escapeHtml(w.label), {direction:'top'}).addTo(obsLayer);
+    }
+  }
+
+  // ---------- 3D view: software renderer on a 2D canvas (no WebGL, no map library) ----------
+  var T3 = {cv:null, ctx:null, w:0, h:0, theta:Math.PI/2+0.5, phi:1.2, dist:1000, tgt:[0,0,0], tex:null, det:null, detKey:'', texCounter:0, credit:'', imgKey:'', imgTimer:0, data:null, hq:true, hqTimer:0, raf:0, lastL:0, framed:false, inited:false};
+  var mode3d = false, exagUser = false, NEAR = 1;
+  var DEFAULT_NOTE = 'نقطه‌های A و B را با کلیک روی نقشه بگذارید؛ بعد از ثبت می‌توانید آن‌ها را بکشید.';
+
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function hex2rgb(c){
+    c = (c||'').trim();
+    if(c.charAt(0)==='#'){
+      if(c.length===4) c = '#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];
+      return [parseInt(c.substr(1,2),16), parseInt(c.substr(3,2),16), parseInt(c.substr(5,2),16)];
+    }
+    return [128,128,128];
+  }
+  function rgba(rgb,a,k){ k = k||1; return 'rgba('+Math.round(rgb[0]*k)+','+Math.round(rgb[1]*k)+','+Math.round(rgb[2]*k)+','+a+')'; }
+
+  function autoExag(r){ var Fm = Math.max(r.Fmid, 0.5); return clamp(Math.round(r.D*1000*0.04/(2*Fm)), 1, 25); }
+  function syncExag(r){
+    var v = parseFloat($('exag').value) || 1;
+    if(!exagUser && r) v = autoExag(r);
+    $('exag').value = v; $('exagVal').textContent = v;
+  }
+
+  function req3d(){ if(!T3.raf) T3.raf = requestAnimationFrame(draw3d); }
+  function scheduleHq(){ clearTimeout(T3.hqTimer); T3.hqTimer = setTimeout(function(){ T3.hq = true; req3d(); updateDetail(); }, 220); }
+
+  function resize3d(){
+    if(!T3.cv) return;
+    var box = $('map3d'), dpr = Math.min(window.devicePixelRatio||1, 2);
+    var w = box.clientWidth, h = box.clientHeight;
+    if(!w || !h) return;
+    T3.w = w; T3.h = h;
+    T3.cv.width = Math.round(w*dpr); T3.cv.height = Math.round(h*dpr);
+    T3.ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function init3d(){
+    if(T3.inited) return true;
+    var cv = document.createElement('canvas');
+    cv.style.cssText = 'width:100%;height:100%;display:block;touch-action:none;cursor:grab';
+    var ctx = cv.getContext && cv.getContext('2d');
+    if(!ctx){ setMsg('نمای سه‌بعدی روی این مرورگر اجرا نشد.'); return false; }
+    $('map3d').appendChild(cv);
+    T3.cv = cv; T3.ctx = ctx;
+    var ptrs = {};
+    cv.addEventListener('pointerdown', function(e){
+      cv.setPointerCapture(e.pointerId);
+      ptrs[e.pointerId] = {x:e.clientX, y:e.clientY, b:e.button, sh:e.shiftKey};
+      T3.hq = false; cv.style.cursor = 'grabbing'; e.preventDefault();
+    });
+    cv.addEventListener('pointermove', function(e){
+      var p = ptrs[e.pointerId]; if(!p) return;
+      var ids = Object.keys(ptrs);
+      if(ids.length === 2){
+        var o = ptrs[ids[0]==String(e.pointerId) ? ids[1] : ids[0]];
+        var d0 = Math.hypot(p.x-o.x, p.y-o.y); p.x = e.clientX; p.y = e.clientY;
+        var d1 = Math.hypot(p.x-o.x, p.y-o.y);
+        if(d0 > 0 && d1 > 0) zoom3d(d0/d1);
+      } else {
+        var dx = e.clientX-p.x, dy = e.clientY-p.y; p.x = e.clientX; p.y = e.clientY;
+        if(p.b===2 || p.sh) pan3d(dx,dy);
+        else { T3.theta -= dx*0.008; T3.phi = clamp(T3.phi - dy*0.006, 0.05, 1.52); }
+      }
+      req3d();
+    });
+    function endp(e){ delete ptrs[e.pointerId]; if(!Object.keys(ptrs).length){ cv.style.cursor = 'grab'; scheduleHq(); } }
+    cv.addEventListener('pointerup', endp); cv.addEventListener('pointercancel', endp);
+    cv.addEventListener('wheel', function(e){ e.preventDefault(); T3.hq = false; zoom3d(Math.exp(e.deltaY*0.0012)); req3d(); scheduleHq(); }, {passive:false});
+    cv.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+    window.addEventListener('resize', function(){ if(mode3d){ resize3d(); req3d(); } });
+    T3.inited = true;
+    if(location.hash === '#debug') window.__T3 = T3;
+    return true;
+  }
+
+  function zoom3d(f){
+    var L = T3.data ? T3.data.L : 1000;
+    T3.dist = clamp(T3.dist*f, Math.max(20, L*0.01), L*10);
+  }
+  function pan3d(dx,dy){
+    var c = T3.cam; if(!c) return;
+    var k = T3.dist/c.focal;
+    for(var i=0;i<3;i++) T3.tgt[i] += (-c.rt[i]*dx + c.up[i]*dy)*k;
+  }
+
+  function frame3d(kind){
+    var d = T3.data; if(!d) return;
+    var L = d.L; T3.tgt = [L/2, d.yMid, 0];
+    var aspect = (T3.w||900)/Math.max(T3.h||500, 1);
+    T3.dist = Math.max(L*0.55/(0.36*aspect)*1.15, d.W*1.1, d.yMax*1.4, L*0.25);
+    if(kind==='top'){ T3.phi = 0.06; T3.theta = Math.PI/2; }
+    else { T3.theta = Math.PI/2 + 0.5; T3.phi = 1.28; }
+    req3d();
+  }
+
+  // satellite image of the strip around the path (Esri export, drawn as a texture)
+  // map texture built from web-map tiles at the right zoom (labels and roads stay sharp)
+  function mtx(lon,z){ return (lon+180)/360*Math.pow(2,z); }
+  function mty(lat,z){ var q=lat*Math.PI/180; return (1-Math.log(Math.tan(q)+1/Math.cos(q))/Math.PI)/2*Math.pow(2,z); }
+  var ESRI_T = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+  var IMG_LAYERS = {
+    sat:    {zmax:19, credit:'Imagery © Esri, Maxar, Earthstar Geographics', url:function(z,x,y){ return ESRI_T+'World_Imagery/MapServer/tile/'+z+'/'+y+'/'+x; }},
+    topo:   {zmax:17, credit:'Map © Esri, USGS, NOAA', url:function(z,x,y){ return ESRI_T+'World_Topo_Map/MapServer/tile/'+z+'/'+y+'/'+x; }},
+    streets:{zmax:18, credit:'Map © Esri, HERE, Garmin, OpenStreetMap contributors', url:function(z,x,y){ return ESRI_T+'World_Street_Map/MapServer/tile/'+z+'/'+y+'/'+x; }}
+  };
+  function composeTex(LY, z, x0, y0, x1, y1, isStale, onFirst, onDone){
+    var nx = x1-x0+1, ny = y1-y0+1, cw = nx*256, ch = ny*256, c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    var cx = c.getContext('2d'); cx.fillStyle = '#9aa39a'; cx.fillRect(0,0,cw,ch);
+    var tex = {c:c, lv:[c], id:++T3.texCounter, z:z, nx:nx, ny:ny,
+      map:function(lon,lat){ return [(mtx(lon,z)-x0)*256, (mty(lat,z)-y0)*256]; },
+      inside:function(lon,lat){ var u = mtx(lon,z)-x0, v = mty(lat,z)-y0; return u >= 0 && u <= nx && v >= 0 && v <= ny; }};
+    var left = nx*ny, loaded = 0, first = false;
+    function fin(){
+      if(--left > 0) return;
+      var lv = [c];
+      while(lv.length < 4 && lv[lv.length-1].width > 512){
+        var pv = lv[lv.length-1], hc = document.createElement('canvas');
+        hc.width = Math.max(1, pv.width>>1); hc.height = Math.max(1, pv.height>>1);
+        var hx = hc.getContext('2d'); hx.imageSmoothingQuality = 'high'; hx.drawImage(pv, 0, 0, hc.width, hc.height);
+        lv.push(hc);
+      }
+      tex.lv = lv; onDone(tex, loaded); req3d();
+    }
+    for(var X=x0; X<=x1; X++) for(var Yy=y0; Yy<=y1; Yy++) (function(X,Yy){
+      var im = new Image();
+      im.onload = function(){
+        if(isStale()) return;
+        cx.drawImage(im, (X-x0)*256, (Yy-y0)*256); loaded++;
+        if(!first){ first = true; if(onFirst) onFirst(tex); }
+        req3d(); fin();
+      };
+      im.onerror = function(){ if(!isStale()) fin(); };
+      im.src = LY.url(z, X, Yy);
+    })(X,Yy);
+    return tex;
+  }
+
+  function loadImagery(bb){
+    var sv = $('imgSel').value, LY = IMG_LAYERS[sv] || IMG_LAYERS.sat;
+    var z = LY.zmax, x0, x1, y0, y1, nx, ny;
+    for(; z>=8; z--){
+      x0 = Math.floor(mtx(bb.minLon,z)); x1 = Math.floor(mtx(bb.maxLon,z));
+      y0 = Math.floor(mty(bb.maxLat,z)); y1 = Math.floor(mty(bb.minLat,z));
+      nx = x1-x0+1; ny = y1-y0+1;
+      if(nx <= 14 && ny <= 14 && nx*ny <= 80) break;
+    }
+    var key = sv+'|'+z+'|'+x0+','+y0+','+x1+','+y1;
+    T3.credit = LY.credit;
+    if(T3.imgKey === key) return;
+    T3.imgKey = key; T3.det = null; T3.detKey = '';
+    clearTimeout(T3.imgTimer);
+    T3.imgTimer = setTimeout(function(){
+      composeTex(LY, z, x0, y0, x1, y1, function(){ return T3.imgKey !== key; },
+        function(tex){ T3.tex = tex; },
+        function(tex, loaded){ if(!loaded && T3.imgKey === key) setMsg('تصویر زمین بارگذاری نشد (اتصال یا فیلترشکن). زمین بدون تصویر نمایش داده می‌شود.'); });
+    }, 450);
+  }
+
+  // when zoomed in, load sharper tiles just for the part of the ground you are looking at
+  function updateDetail(){
+    var d = T3.data;
+    if(!d || !T3.tex || !mode3d) return;
+    var sv = $('imgSel').value, LY = IMG_LAYERS[sv] || IMG_LAYERS.sat;
+    var f = clamp(T3.tgt[0]/d.L, 0, 1), c = d.ll(f, T3.tgt[2]);
+    var Rm = clamp(T3.dist*0.8, 40, Math.max(d.W, d.L)/2);
+    var dLon = Rm/(111320*d.cl), dLat = Rm/110540;
+    var bb = {minLon:c[0]-dLon, maxLon:c[0]+dLon, minLat:c[1]-dLat, maxLat:c[1]+dLat};
+    var z = LY.zmax, x0, x1, y0, y1, nx, ny;
+    for(; z > T3.tex.z; z--){
+      x0 = Math.floor(mtx(bb.minLon,z)); x1 = Math.floor(mtx(bb.maxLon,z));
+      y0 = Math.floor(mty(bb.maxLat,z)); y1 = Math.floor(mty(bb.minLat,z));
+      nx = x1-x0+1; ny = y1-y0+1;
+      if(nx <= 7 && ny <= 7 && nx*ny <= 30) break;
+    }
+    if(z <= T3.tex.z){ if(T3.det){ T3.det = null; T3.detKey = ''; req3d(); } return; }
+    var key = sv+'|'+z+'|'+x0+','+y0+','+x1+','+y1;
+    if(key === T3.detKey) return;
+    T3.detKey = key;
+    composeTex(LY, z, x0, y0, x1, y1, function(){ return T3.detKey !== key; }, null,
+      function(tex, loaded){ if(T3.detKey === key && loaded){ T3.det = tex; req3d(); } });
+  }
+
+  // ground relief around the path: terrain tiles (Terrarium PNG), decoded in the browser
+  function loadDEM(bb){
+    var key = 'dem|'+[bb.minLon,bb.maxLon,bb.minLat,bb.maxLat].map(function(v){return v.toFixed(4);}).join(',');
+    if(T3.demKey === key) return;
+    T3.demKey = key; T3.dem = null;
+    clearTimeout(T3.demTimer);
+    T3.demTimer = setTimeout(function(){
+      function tx(lon,z){ return (lon+180)/360*Math.pow(2,z); }
+      function ty(lat,z){ var q=lat*Math.PI/180; return (1-Math.log(Math.tan(q)+1/Math.cos(q))/Math.PI)/2*Math.pow(2,z); }
+      var z = 14;
+      while(z > 8){
+        var nx = Math.floor(tx(bb.maxLon,z))-Math.floor(tx(bb.minLon,z))+1, ny = Math.floor(ty(bb.minLat,z))-Math.floor(ty(bb.maxLat,z))+1;
+        if(nx*ny <= 16) break;
+        z--;
+      }
+      var x0=Math.floor(tx(bb.minLon,z)), x1=Math.floor(tx(bb.maxLon,z)), y0=Math.floor(ty(bb.maxLat,z)), y1=Math.floor(ty(bb.minLat,z));
+      var cw=(x1-x0+1)*256, ch=(y1-y0+1)*256, cvs=document.createElement('canvas'); cvs.width=cw; cvs.height=ch;
+      var cx=cvs.getContext('2d'), left=(x1-x0+1)*(y1-y0+1), failed=false;
+      function done(){
+        if(--left > 0 || T3.demKey !== key) return;
+        if(failed){ setMsg('ارتفاع اطراف مسیر گرفته نشد؛ زمین اطراف مسیر مسطح نشان داده می‌شود.'); return; }
+        try{
+          var id = cx.getImageData(0,0,cw,ch).data, el = new Float32Array(cw*ch);
+          for(var k=0;k<cw*ch;k++) el[k] = id[k*4]*256 + id[k*4+1] + id[k*4+2]/256 - 32768;
+          T3.dem = {sample:function(lon,lat){
+            var px = clamp((tx(lon,z)-x0)*256-0.5, 0, cw-1.001), py = clamp((ty(lat,z)-y0)*256-0.5, 0, ch-1.001);
+            var ix=Math.floor(px), iy=Math.floor(py), fx=px-ix, fy=py-iy, i0=iy*cw+ix;
+            return el[i0]*(1-fx)*(1-fy) + el[i0+1]*fx*(1-fy) + el[i0+cw]*(1-fx)*fy + el[i0+cw+1]*fx*fy;
+          }};
+          build3d(lastResult);
+        }catch(err){ setMsg('ارتفاع اطراف مسیر خوانده نشد؛ زمین اطراف مسیر مسطح نشان داده می‌شود.'); }
+      }
+      for(var X=x0; X<=x1; X++) for(var Yt=y0; Yt<=y1; Yt++) (function(X,Yt){
+        var im = new Image(); im.crossOrigin = 'anonymous';
+        im.onload = function(){ cx.drawImage(im, (X-x0)*256, (Yt-y0)*256); done(); };
+        im.onerror = function(){ failed = true; done(); };
+        im.src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/'+z+'/'+X+'/'+Yt+'.png';
+      })(X,Yt);
+    }, 500);
+  }
+
+  function build3d(r){
+    if(!T3.inited || !r) return;
+    var la=num('latA'), lo=num('lonA'), lb=num('latB'), ob=num('lonB'), gA=num('gA'), gB=num('gB');
+    if([la,lo,lb,ob,gA,gB].some(function(v){return v===null;})) return;
+    var e = Math.max(1, parseFloat($('exag').value) || 1), D = r.D, L = D*1000;
+    var cl = Math.cos(((la+lb)/2)*Math.PI/180);
+    var dx=(ob-lo)*cl*111320, dy=(lb-la)*110540, L2=Math.sqrt(dx*dx+dy*dy);
+    if(!L2) return;
+    var px=-dy/L2, py=dx/L2;
+    // scene axes: x = along the path, y = up, z = to the right-hand side (south when A->B points east), so the picture is not mirrored
+    function ll(f,off){ return [lo+(ob-lo)*f - off*px/(111320*cl), la+(lb-la)*f - off*py/110540]; }
+    function terrH(f){ return groundAt(f,gA,gB) + bulge(D*f, D, r.k); }
+    // a wide area around the path (not just a thin strip)
+    var W = clamp(Math.max(L*0.6, 2.6*r.Fmid*e, 400), 400, 15000);
+    var cs = [ll(0,-W/2), ll(0,W/2), ll(1,-W/2), ll(1,W/2)];
+    var bb = {minLon:Math.min.apply(null,cs.map(function(c){return c[0];})), maxLon:Math.max.apply(null,cs.map(function(c){return c[0];})),
+              minLat:Math.min.apply(null,cs.map(function(c){return c[1];})), maxLat:Math.max.apply(null,cs.map(function(c){return c[1];})), cl:cl};
+    var padLon = (bb.maxLon-bb.minLon)*0.02, padLat = (bb.maxLat-bb.minLat)*0.02;
+    bb.minLon -= padLon; bb.maxLon += padLon; bb.minLat -= padLat; bb.maxLat += padLat;
+    var dem = T3.dem, elat = Math.min(e, 3);
+    function makeGrid(nx, nz){
+      var g = {nx:nx, nz:nz, X:[], Z:[], R:[], uv:[], q:[], Y:[], texId:0, tp:null, detId:0, dp:null}, j;
+      // average several nearby samples so tiny bumps (buildings, noise) do not turn into stripes
+      function demS(f, z){
+        var df = 0.5/nx, dz = 0.5*W/nz, a = [[f,z],[f-df,z],[f+df,z],[f,z-dz],[f,z+dz]], sum = 0;
+        a.forEach(function(t){ var q = ll(clamp(t[0],0,1), t[1]); sum += dem.sample(q[0], q[1]); });
+        return sum/5;
+      }
+      for(j=0;j<=nz;j++) g.Z.push(-W/2 + W*j/nz);
+      for(var i=0;i<=nx;i++){
+        var f = i/nx, th = terrH(f), d0 = 0, row = [], uvr = [], qr = [];
+        if(dem) d0 = demS(f, 0);
+        g.X.push(f*L);
+        for(j=0;j<=nz;j++){
+          var q = ll(f, g.Z[j]), dd = dem ? demS(f, g.Z[j]) - d0 : 0;
+          row.push(th*e + elat*dd);
+          uvr.push([(q[0]-bb.minLon)/(bb.maxLon-bb.minLon), (bb.maxLat-q[1])/(bb.maxLat-bb.minLat)]); qr.push(q);
+        }
+        g.R.push(row); g.uv.push(uvr); g.q.push(qr);
+      }
+      return g;
+    }
+    var coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    var G = {lq:makeGrid(40,12), hq:(coarse ? makeGrid(64,20) : makeGrid(100,30))};
+    var minY = Math.min(r.hA*e, r.hB*e), maxY = Math.max(r.hA*e, r.hB*e);
+    G.hq.R.forEach(function(row){ row.forEach(function(v){ minY = Math.min(minY, v); maxY = Math.max(maxY, v); }); });
+    var baseY = minY - Math.max(20, (maxY-minY)*0.02);
+    ['lq','hq'].forEach(function(k){ G[k].Y = G[k].R.map(function(row){ return row.map(function(v){ return v - baseY; }); }); });
+    T3.data = {cl:cl, r:r, e:e, L:L, D:D, W:W, n:r.pts.length-1, terrH:terrH, ll:ll, bb:bb, G:G,
+               Y:function(h){ return h*e - baseY; }, yMid:((r.hA+r.hB)/2)*e - baseY, yMax:maxY - baseY};
+    resize3d();
+    loadImagery(bb);
+    loadDEM(bb);
+    if(!T3.framed || Math.abs(L-T3.lastL)/Math.max(L,1) > 0.25){ T3.framed = true; T3.lastL = L; frame3d('side'); }
+    req3d();
+  }
+
+  function draw3d(){
+    T3.raf = 0;
+    if(!mode3d || !T3.data) return;
+    var d = T3.data, r = d.r, ctx = T3.ctx, e = d.e, L = d.L, D = d.D, Y = d.Y, n = d.n;
+    if(!T3.w || !T3.h){ resize3d(); if(!T3.w || !T3.h) return; }
+    var w = T3.w, h = T3.h, t0 = performance.now();
+    ctx.clearRect(0,0,w,h);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    // camera
+    var sp = Math.sin(T3.phi);
+    var C = [T3.tgt[0]+T3.dist*sp*Math.cos(T3.theta), T3.tgt[1]+T3.dist*Math.cos(T3.phi), T3.tgt[2]+T3.dist*sp*Math.sin(T3.theta)];
+    var f = [T3.tgt[0]-C[0], T3.tgt[1]-C[1], T3.tgt[2]-C[2]], fl = Math.sqrt(f[0]*f[0]+f[1]*f[1]+f[2]*f[2]);
+    f = [f[0]/fl, f[1]/fl, f[2]/fl];
+    var rt = [-f[2], 0, f[0]], rl = Math.sqrt(rt[0]*rt[0]+rt[2]*rt[2]) || 1; rt = [rt[0]/rl, 0, rt[2]/rl];
+    var up = [rt[1]*f[2]-rt[2]*f[1], rt[2]*f[0]-rt[0]*f[2], rt[0]*f[1]-rt[1]*f[0]];
+    var focal = (h/2)/0.36;
+    T3.cam = {C:C, f:f, rt:rt, up:up, focal:focal};
+    function P(x,y,z){
+      var vx=x-C[0], vy=y-C[1], vz=z-C[2], zc = vx*f[0]+vy*f[1]+vz*f[2];
+      if(zc < NEAR) return null;
+      return [w/2 + (vx*rt[0]+vy*rt[1]+vz*rt[2])/zc*focal, h/2 - (vx*up[0]+vy*up[1]+vz*up[2])/zc*focal, zc];
+    }
+    var list = [];
+    function add(dep, fn, lay){ list.push({d:dep, fn:fn, l:(lay===undefined?1:lay)}); }
+    function poly(pts, fill, stroke, lw){
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+      for(var q=1;q<pts.length;q++) ctx.lineTo(pts[q][0], pts[q][1]);
+      ctx.closePath();
+      if(fill){ ctx.fillStyle = fill; ctx.fill(); }
+      if(stroke){ ctx.strokeStyle = stroke; ctx.lineWidth = lw||1; ctx.stroke(); }
+    }
+    function seg(a,b,color,wpx){
+      ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+      ctx.strokeStyle = color; ctx.lineWidth = wpx; ctx.lineCap = 'round'; ctx.stroke();
+    }
+    var teal = hex2rgb(css('--fresnel-line')), okc = hex2rgb(css('--ok')), warnc = hex2rgb(css('--warn')), badc = hex2rgb(css('--bad'));
+    var tex = T3.tex, det = T3.det, hq = T3.hq;
+
+    // ---- terrain (wide area, textured), with side walls ----
+    var g0 = hq ? d.G.hq : d.G.lq, NXg = g0.nx, NZg = g0.nz, V = [];
+    if(det && g0.detId !== det.id){ g0.dp = g0.q.map(function(row){ return row.map(function(q){ return det.inside(q[0],q[1]) ? det.map(q[0],q[1]) : null; }); }); g0.detId = det.id; }
+    if(tex && g0.texId !== tex.id){ g0.tp = g0.q.map(function(row){ return row.map(function(q){ return tex.map(q[0], q[1]); }); }); g0.texId = tex.id; }
+    for(var i=0;i<=NXg;i++){
+      V[i] = [];
+      for(var j=0;j<=NZg;j++){
+        var yy = g0.Y[i][j], zz = g0.Z[j];
+        V[i][j] = {p:P(g0.X[i], yy, zz), x:g0.X[i], y:yy, z:zz, uv:(tex ? g0.tp[i][j] : null), ud:(det ? g0.dp[i][j] : null)};
+      }
+    }
+    var shy = Math.min(1, 2.5/e);
+    var LD = [0.35, 0.85, 0.4], ll_ = Math.sqrt(LD[0]*LD[0]+LD[1]*LD[1]+LD[2]*LD[2]); LD = [LD[0]/ll_, LD[1]/ll_, LD[2]/ll_];
+    function drawTri(A,B,Cc){
+      var s = [A.p,B.p,Cc.p], cx=(s[0][0]+s[1][0]+s[2][0])/3, cy=(s[0][1]+s[1][1]+s[2][1])/3, q, ex=[];
+      for(q=0;q<3;q++){ var ddx=s[q][0]-cx, ddy=s[q][1]-cy, ln=Math.sqrt(ddx*ddx+ddy*ddy)||1; ex.push([s[q][0]+ddx/ln*0.8, s[q][1]+ddy/ln*0.8]); }
+      // shading from slope
+      var ux=B.x-A.x, uy=(B.y-A.y)*shy, uz=B.z-A.z, vx=Cc.x-A.x, vy=(Cc.y-A.y)*shy, vz=Cc.z-A.z;
+      var nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx, nl=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;
+      if(ny < 0){ nx=-nx; ny=-ny; nz=-nz; }
+      var lit = clamp((nx*LD[0]+ny*LD[1]+nz*LD[2])/nl, 0, 1), dark = (1-lit)*0.24;
+      ctx.save(); ctx.beginPath(); ctx.moveTo(ex[0][0],ex[0][1]); ctx.lineTo(ex[1][0],ex[1][1]); ctx.lineTo(ex[2][0],ex[2][1]); ctx.closePath();
+      var TX = tex, U0 = A.uv, U1 = B.uv, U2 = Cc.uv;
+      if(det && A.ud && B.ud && Cc.ud){ TX = det; U0 = A.ud; U1 = B.ud; U2 = Cc.ud; }
+      if(TX && U0 && U1 && U2){
+        ctx.clip();
+        var x0=U0[0], y0=U0[1], x1=U1[0], y1=U1[1], x2=U2[0], y2=U2[1];
+        var den = x0*(y1-y2) - x1*(y0-y2) + x2*(y0-y1), src = TX.c;
+        if(den){
+          var sA = Math.abs((s[1][0]-s[0][0])*(s[2][1]-s[0][1]) - (s[2][0]-s[0][0])*(s[1][1]-s[0][1]))/2 || 1;
+          var lvl = clamp(Math.floor(Math.log2(Math.sqrt(Math.abs(den)/2/sA))), 0, TX.lv.length-1);
+          if(lvl > 0){ var sc_ = 1/(1<<lvl); x0*=sc_; y0*=sc_; x1*=sc_; y1*=sc_; x2*=sc_; y2*=sc_; den *= sc_*sc_; }
+          src = TX.lv[lvl];
+        }
+        if(den){
+          var a_=(s[0][0]*(y1-y2) - s[1][0]*(y0-y2) + s[2][0]*(y0-y1))/den;
+          var c_=-(s[0][0]*(x1-x2) - s[1][0]*(x0-x2) + s[2][0]*(x0-x1))/den;
+          var e_=(s[0][0]*(x1*y2-x2*y1) - s[1][0]*(x0*y2-x2*y0) + s[2][0]*(x0*y1-x1*y0))/den;
+          var b_=(s[0][1]*(y1-y2) - s[1][1]*(y0-y2) + s[2][1]*(y0-y1))/den;
+          var d_=-(s[0][1]*(x1-x2) - s[1][1]*(x0-x2) + s[2][1]*(x0-x1))/den;
+          var f_=(s[0][1]*(x1*y2-x2*y1) - s[1][1]*(x0*y2-x2*y0) + s[2][1]*(x0*y1-x1*y0))/den;
+          ctx.transform(a_,b_,c_,d_,e_,f_); ctx.drawImage(src, 0, 0);
+        }
+      } else { ctx.fillStyle = rgba([176,160,118],1,0.55+0.45*lit); ctx.fill(); }
+      ctx.restore();
+      if(dark > 0.02){ ctx.beginPath(); ctx.moveTo(ex[0][0],ex[0][1]); ctx.lineTo(ex[1][0],ex[1][1]); ctx.lineTo(ex[2][0],ex[2][1]); ctx.closePath(); ctx.fillStyle = 'rgba(0,0,0,'+dark.toFixed(3)+')'; ctx.fill(); }
+    }
+    function tri(A,B,Cc){ if(!A.p||!B.p||!Cc.p) return; add((A.p[2]+B.p[2]+Cc.p[2])/3, function(){ drawTri(A,B,Cc); }, 0); }
+    for(i=0;i<NXg;i++) for(var j2=0;j2<NZg;j2++){
+      tri(V[i][j2], V[i+1][j2], V[i][j2+1]);
+      tri(V[i+1][j2], V[i+1][j2+1], V[i][j2+1]);
+    }
+    var wallC = 'rgb(98,82,60)';
+    function wall(A,B,y0){
+      var a0=P(A.x,y0,A.z), b0=P(B.x,y0,B.z); if(!A.p||!B.p||!a0||!b0) return;
+      add((A.p[2]+B.p[2]+a0[2]+b0[2])/4, function(){ poly([A.p,B.p,b0,a0], wallC, wallC, 1); }, 0);
+    }
+    for(i=0;i<NXg;i++){ wall(V[i][0], V[i+1][0], 0); wall(V[i][NZg], V[i+1][NZg], 0); }
+    for(var j3=0;j3<NZg;j3++){ wall(V[0][j3], V[0][j3+1], 0); wall(V[NXg][j3], V[NXg][j3+1], 0); }
+
+    // ---- Fresnel oval (ellipsoid) ----
+    var stride = Math.max(1, Math.round(n/60)), NE = Math.ceil(n/stride), M = 24, ring = [], sts = [];
+    for(var st=0; st<=NE; st++){
+      var si = Math.min(n, st*stride), pt = r.pts[si], fxx = si/n, xx = fxx*L, cy = Y(pt.los), row = [];
+      for(var jj=0; jj<=M; jj++){
+        var ang = 2*Math.PI*jj/M;
+        row.push(P(xx, cy + e*pt.F*Math.cos(ang), e*pt.F*Math.sin(ang)));
+      }
+      ring.push(row); sts.push({x:xx, cy:cy, F:pt.F, i:si});
+    }
+    var fillE = rgba(teal, 0.10);
+    for(st=0; st<NE; st++) for(jj=0; jj<M; jj++){
+      var q0=ring[st][jj], q1=ring[st+1][jj], q2=ring[st+1][jj+1], q3=ring[st][jj+1];
+      if(!q0||!q1||!q2||!q3) continue;
+      (function(q0,q1,q2,q3){ add((q0[2]+q1[2]+q2[2]+q3[2])/4, function(){ poly([q0,q1,q2,q3], fillE); }); })(q0,q1,q2,q3);
+    }
+    // outline lines along the oval
+    for(jj=0; jj<M; jj+=3) for(st=0; st<NE; st++){
+      var l0=ring[st][jj], l1=ring[st+1][jj]; if(!l0||!l1) continue;
+      (function(l0,l1,thick){ add((l0[2]+l1[2])/2 - 0.01, function(){ seg(l0,l1, rgba(teal,0.95), thick?2.4:1.1); }); })(l0,l1,jj%6===0);
+    }
+    for(st=0; st<=NE; st+=Math.max(1,Math.round(NE/6))){
+      var rg = ring[st]; if(rg.some(function(v){return !v;})) continue;
+      (function(rg){ var zs=0; rg.forEach(function(v){zs+=v[2];}); add(zs/rg.length - 0.01, function(){ poly(rg, null, rgba(teal,0.85), 1.4); }); })(rg);
+    }
+    // required-clearance limit (orange)
+    [0,Math.PI/2,Math.PI,3*Math.PI/2].forEach(function(ang){
+      var prev = null;
+      sts.forEach(function(S){
+        var cur = P(S.x, S.cy + e*r.req*S.F*Math.cos(ang), e*r.req*S.F*Math.sin(ang));
+        if(prev && cur){ (function(a,b){ add((a[2]+b[2])/2 - 0.02, function(){ seg(a,b,'rgba(245,166,35,.95)',1.8); }); })(prev,cur); }
+        prev = cur;
+      });
+    });
+    // signal path (red)
+    var rr = Math.max(L/1400, 1.5), prevP = null;
+    for(st=0; st<=NE; st++){
+      var S2 = sts[st], cur2 = P(S2.x, S2.cy, 0);
+      if(prevP && cur2){ (function(a,b){ add((a[2]+b[2])/2 - 0.03, function(){ seg(a,b,'#ff2d2d', Math.max(2.4, 2*rr*focal/((a[2]+b[2])/2))); }); })(prevP,cur2); }
+      prevP = cur2;
+    }
+
+    // ---- obstacles (boxes) and red cut section ----
+    var side = Math.max(L/150, 8), labels = [];
+    r.obs.forEach(function(o){
+      var f1 = clamp(o.d/D, 0, 1), xo = f1*L, y0 = Y(o.base), y1 = y0 + e*Math.max(1, o.top-o.base), hs = side/2;
+      var cls = classify(o.ratio, r.req);
+      var col = (cls==='ok-full'||cls==='ok') ? okc : (cls==='warn' ? warnc : badc);
+      var stTxt = (cls==='ok-full'||cls==='ok') ? 'آزاد' : (cls==='warn' ? 'فرنل مسدود' : 'قطع خط دید');
+      var c8 = [[xo-hs,y0,-hs],[xo+hs,y0,-hs],[xo+hs,y0,hs],[xo-hs,y0,hs],[xo-hs,y1,-hs],[xo+hs,y1,-hs],[xo+hs,y1,hs],[xo-hs,y1,hs]].map(function(c){ return P(c[0],c[1],c[2]); });
+      if(c8.every(function(v){return !!v;})){
+        [[[4,5,6,7],1.0],[[0,1,5,4],0.8],[[1,2,6,5],0.65],[[2,3,7,6],0.8],[[3,0,4,7],0.65]].forEach(function(fc){
+          var pts = fc[0].map(function(ix){ return c8[ix]; }), dep = 0; pts.forEach(function(v){ dep += v[2]; });
+          add(dep/4, function(){ poly(pts, rgba(col,0.94,fc[1]), 'rgba(0,0,0,.45)', 1); });
+        });
+      }
+      if(o.ratio < r.req){
+        var idx = clamp(Math.round(f1*n), 0, n), pp = r.pts[idx], cyc = Y(pp.los), rg2 = [], dsum = 0, okp = true;
+        for(var k2=0;k2<M;k2++){ var a2 = 2*Math.PI*k2/M, pv = P(xo, cyc + e*pp.F*Math.cos(a2), e*pp.F*Math.sin(a2)); if(!pv){ okp=false; break; } rg2.push(pv); dsum += pv[2]; }
+        if(okp && pp.F>0.2) add(dsum/M - 0.04, function(){ poly(rg2, rgba(badc,0.5), rgba(badc,1), 2.2); });
+      }
+      var tp = P(xo, y1, 0); if(tp) labels.push({x:tp[0], y:tp[1]-16, t:o.name+' — '+stTxt, c:col});
+    });
+
+    // ---- towers at both ends (vertical lines up to antenna height) ----
+    var rrT = Math.max(L/1100, 2), towers = [];
+    [[0, r.hA, 'A', r.aA],[1, r.hB, 'B', r.aB]].forEach(function(t){
+      var xt = t[0]*L, yb = Y(d.terrH(t[0])), yt = Y(t[1]), a = P(xt,yb,0), b = P(xt,yt,0);
+      if(a && b) add((a[2]+b[2])/2 - 0.05, function(){
+        var wpx = Math.max(3, 2*rrT*focal/b[2]);
+        seg(a,b,'#111', wpx);
+        ctx.beginPath(); ctx.arc(b[0], b[1], Math.max(4.5, rrT*2.6*focal/b[2]), 0, Math.PI*2); ctx.fillStyle = '#ff2d2d'; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+      });
+      if(b) towers.push({x:b[0], y:b[1]-18, name:t[2], ant:t[3]});
+    });
+
+    list.sort(function(p1,p2){ return (p1.l-p2.l) || (p2.d-p1.d); });
+    for(var li=0; li<list.length; li++) list[li].fn();
+
+    // ---- labels (always on top) ----
+    ctx.font = 'bold 12px Vazirmatn, Tahoma, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'rtl';
+    var surface = css('--surface'), ink = css('--ink');
+    labels.forEach(function(lb2){
+      var tw = ctx.measureText(lb2.t).width + 16, x = lb2.x - tw/2, y = lb2.y - 11;
+      ctx.beginPath(); ctx.rect(x, y, tw, 22); ctx.fillStyle = surface; ctx.fill();
+      ctx.strokeStyle = rgba(lb2.c,1); ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = ink; ctx.fillText(lb2.t, lb2.x, lb2.y);
+    });
+    towers.forEach(function(t){
+      var txt = t.name+' · '+t.ant+' m', tw = ctx.measureText(txt).width + 16;
+      ctx.beginPath(); ctx.rect(t.x-tw/2, t.y-11, tw, 22); ctx.fillStyle = surface; ctx.fill();
+      ctx.strokeStyle = '#ff2d2d'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = ink; ctx.fillText(txt, t.x, t.y);
+    });
+    // scale note
+    var note = 'اغراق ارتفاع ×'+e;
+    var nw = ctx.measureText(note).width + 16;
+    ctx.beginPath(); ctx.rect(10, h-34, nw, 24); ctx.fillStyle = surface; ctx.globalAlpha = 0.9; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = ink; ctx.textAlign = 'left'; ctx.direction = 'ltr'; ctx.fillText(note, 18, h-22);
+    if(T3.credit){
+      ctx.font = '11px sans-serif'; ctx.direction = 'ltr'; ctx.textAlign = 'right';
+      var cw2 = ctx.measureText(T3.credit+' · Terrain: Mapzen, AWS').width + 12;
+      ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillRect(w-cw2-6, h-24, cw2, 18);
+      ctx.fillStyle = '#222'; ctx.fillText(T3.credit+' · Terrain: Mapzen, AWS', w-12, h-15);
+    }
+    // compass needle points toward B
+    var hl = Math.sqrt(f[0]*f[0]+f[2]*f[2]) || 1;
+    $('needleWrap').style.transform = 'rotate('+Math.atan2(rt[0], f[0]/hl)+'rad)';
+    T3.lastMs = performance.now()-t0;
+  }
+
+  function setMode(is3d){
+    if(is3d && !lastResult){ setMsg('برای نمای سه‌بعدی اول نقطه A و B را روی نقشه مشخص کنید.'); return; }
+    mode3d = is3d;
+    $('map').style.display = is3d ? 'none' : '';
+    $('wrap3d').style.display = is3d ? 'block' : 'none';
+    $('imgSel').style.display = is3d ? '' : 'none';
+    $('exagBar').style.display = is3d ? 'flex' : 'none';
+    $('legend3d').style.display = is3d ? 'flex' : 'none';
+    $('legend2d').style.display = is3d ? 'none' : 'flex';
+    $('btn2d').classList.toggle('primary', !is3d);
+    $('btn3d').classList.toggle('primary', is3d);
+    if(is3d){
+      if(!init3d()){ setMode(false); return; }
+      setPick(false);
+      $('mapNote').textContent = 'روی صحنه بکشید تا بچرخد، چرخ موس زوم می‌کند، دکمه راست یا Shift جابه‌جا می‌کند. کره آبی هم می‌چرخاند و کلیک روی آن نمای از کنار را برمی‌گرداند.';
+      resize3d(); syncExag(lastResult); build3d(lastResult); scheduleHq();
+    } else {
+      $('mapNote').textContent = DEFAULT_NOTE;
+      if(map) map.invalidateSize();
+    }
+  }
+
+  // ---------- wiring ----------
+  var pending = false;
+  function schedule(){ if(pending) return; pending = true; requestAnimationFrame(function(){ pending = false; render(); }); }
+
+  ['A','B'].forEach(function(site){
+    var latEl = $('lat'+site), lonEl = $('lon'+site);
+    [[latEl,'lat'],[lonEl,'lon']].forEach(function(x){
+      var el = x[0], kind = x[1];
+      el.addEventListener('input', function(){ applyCoordText(el, kind, latEl, lonEl, false); });
+      el.addEventListener('paste', function(){ setTimeout(function(){ applyCoordText(el, kind, latEl, lonEl, true); }, 0); });
+      el.addEventListener('change', function(){ applyCoordText(el, kind, latEl, lonEl, true); });
+      el.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ applyCoordText(el, kind, latEl, lonEl, true); } });
+    });
+  });
+  document.querySelectorAll('[data-swap]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var site = b.getAttribute('data-swap'), latEl = $('lat'+site), lonEl = $('lon'+site);
+      var a = num('lat'+site), o = num('lon'+site);
+      if(a === null || o === null){ setMsg('اول هر دو مختصات را وارد کنید.'); return; }
+      if(Math.abs(o) > 90){ setMsg('این دو عدد قابل جابه‌جایی نیستند: عرض نباید از 90 بیشتر شود.'); return; }
+      setCoordValue('lat'+site, o); setCoordValue('lon'+site, a);
+      setMsg('عرض و طول جابه‌جا شد: عرض '+o.toFixed(6)+'، طول '+a.toFixed(6));
+      coordChanged();
+    });
+  });
+  document.querySelectorAll('[data-gps]').forEach(function(b){
+    b.addEventListener('click', function(){ useGps(b.getAttribute('data-gps')); });
+  });
+  ['latA','lonA','latB','lonB'].forEach(function(id){
+    $(id).addEventListener('input', function(){ profile = null; syncDistance(); schedule(); autoProfile(); });
+  });
+  ['nameA','nameB','antA','antB','gA','gB','freq','kf','req','dist','txp','gainA','gainB','cable','sens','oloss','fadeT'].forEach(function(id){
+    $(id).addEventListener('input', schedule);
+  });
+  $('addObs').addEventListener('click', function(){ addObstacle('', '', '', ''); });
+  $('btnProfile').addEventListener('click', function(){ fetchProfile(false); });
+  $('btnKml').addEventListener('click', exportKml);
+  function startPick(site){
+    if(mode3d) setMode(false);
+    setPickMode(pickMode === site ? null : site);
+  }
+  $('btnPickA').addEventListener('click', function(){ startPick('A'); });
+  $('btnPickB').addEventListener('click', function(){ startPick('B'); });
+  document.querySelectorAll('[data-pick]').forEach(function(b){ b.addEventListener('click', function(){ startPick(b.getAttribute('data-pick')); }); });
+  $('btnPick').addEventListener('click', function(){
+    if(mode3d) setMode(false);
+    if(!lastResult){ setMsg('اول نقطه A و B را مشخص کنید، بعد مانع اضافه کنید.'); return; }
+    setPickMode(pickMode === 'obs' ? null : 'obs');
+  });
+  $('btn2d').addEventListener('click', function(){ setMode(false); });
+  $('btn3d').addEventListener('click', function(){ setMode(true); });
+  $('exag').addEventListener('input', function(){ exagUser = true; syncExag(lastResult); build3d(lastResult); });
+  $('exagAuto').addEventListener('click', function(){ exagUser = false; syncExag(lastResult); build3d(lastResult); });
+  $('imgSel').addEventListener('change', function(){ T3.imgKey = ''; build3d(lastResult); });
+  (function(){
+    var sph = $('sphere'), drag = null;
+    sph.addEventListener('pointerdown', function(e){
+      if(!T3.inited) return;
+      sph.setPointerCapture(e.pointerId);
+      drag = {x:e.clientX, y:e.clientY, t:T3.theta, p:T3.phi, moved:false};
+      T3.hq = false; e.preventDefault();
+    });
+    sph.addEventListener('pointermove', function(e){
+      if(!drag) return;
+      var dx = e.clientX-drag.x, dy = e.clientY-drag.y;
+      if(Math.abs(dx)+Math.abs(dy) > 3) drag.moved = true;
+      T3.theta = drag.t - dx*0.012; T3.phi = clamp(drag.p - dy*0.009, 0.05, 1.52); req3d();
+    });
+    sph.addEventListener('pointerup', function(){ if(drag && !drag.moved) frame3d('side'); drag = null; scheduleHq(); });
+    sph.addEventListener('pointercancel', function(){ drag = null; scheduleHq(); });
+    document.querySelectorAll('#nav3d .nb').forEach(function(b){
+      b.addEventListener('click', function(){
+        if(!T3.inited) return;
+        var a = b.getAttribute('data-a');
+        if(a==='lf') T3.theta += 0.26; else if(a==='rt') T3.theta -= 0.26;
+        else if(a==='up') T3.phi = clamp(T3.phi - 0.17, 0.05, 1.52); else T3.phi = clamp(T3.phi + 0.17, 0.05, 1.52);
+        req3d();
+      });
+    });
+  })();
+  $('btnFit').addEventListener('click', function(){
+    if(mode3d){ frame3d('side'); return; }
+    fitView();
+  });
+  $('zoomLink').addEventListener('change', schedule);
+  window.addEventListener('resize', schedule);
+  if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', schedule); }
+
+  syncDistance();
+  initMap();
+  render();
+  autoProfile();
+  if(map){ if(num('latA') === null) setPickMode('A'); else if(num('latB') === null) setPickMode('B'); else setPickMode(null); }
+})();
+</script>
+</body>
+</html>
